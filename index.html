@@ -46,7 +46,7 @@ const view={x:0,y:0,s:Math.min(innerWidth,innerHeight)/280};
 
 /* ---------- catálogo educativo de tecnologias ---------- */
 const TECH=[
-['CW','Ondas e formas de onda','Continuous-Wave Radar'],['FMCW','Ondas e formas de onda','Frequency-Modulated Continuous-Wave Radar'],['SFCW','Ondas e formas de onda','Stepped-Frequency Continuous-Wave Radar'],['UWB','Ondas e formas de onda','Ultra-Wideband Radar'],
+['CW','Ondas e formas de onda','Continuous-Wave Radar','Disponível (educativo)'],['FMCW','Ondas e formas de onda','Frequency-Modulated Continuous-Wave Radar'],['SFCW','Ondas e formas de onda','Stepped-Frequency Continuous-Wave Radar'],['UWB','Ondas e formas de onda','Ultra-Wideband Radar'],
 ['PD','Processamento e modos','Pulse-Doppler'],['LPI','Processamento e modos','Low Probability of Intercept'],['MTI','Processamento e modos','Moving Target Indication'],['AMTI','Processamento e modos','Airborne Moving Target Indication'],['GMTI','Processamento e modos','Ground Moving Target Indication'],['ARPA','Processamento e modos','Automatic Radar Plotting Aid'],
 ['PESA','Antenas e arquiteturas','Passive Electronically Scanned Array'],['AESA','Antenas e arquiteturas','Active Electronically Scanned Array'],['MIMO','Antenas e arquiteturas','Multiple-Input Multiple-Output'],
 ['PCL','Passivos e além do horizonte','Passive Coherent Location'],['OTH','Passivos e além do horizonte','Over-the-Horizon Radar'],['OTHR','Passivos e além do horizonte','Over-the-Horizon Radar'],['ROTHR','Passivos e além do horizonte','Relocatable Over-the-Horizon Radar'],['SWR','Passivos e além do horizonte','Sigla dependente do contexto'],['HFSWR','Passivos e além do horizonte','High-Frequency Surface-Wave Radar'],
@@ -60,15 +60,40 @@ const TECH=[
 let selectedTech=null;
 function showTech(item){
  selectedTech=item;
- const detail=$('catalog-detail');detail.innerHTML='<h3></h3><div></div><dl><dt>Categoria</dt><dd data-field="category"></dd><dt>Estado</dt><dd data-field="status"></dd><dt>Fidelidade</dt><dd data-field="level"></dd><dt>Escopo</dt><dd data-field="scope"></dd></dl><button id="tech-activate" type="button" hidden>Ativar no simulador</button><p id="tech-active-note" aria-live="polite"></p>';
+ const detail=$('catalog-detail');
+ detail.innerHTML='<h3></h3><div></div><dl><dt>Categoria</dt><dd data-field="category"></dd><dt>Estado</dt><dd data-field="status"></dd><dt>Fidelidade</dt><dd data-field="level"></dd><dt>Escopo</dt><dd data-field="scope"></dd></dl><button id="tech-activate" type="button" hidden>Ativar demonstração</button><p id="tech-active-note" aria-live="polite"></p><section id="cw-panel" hidden style="border-top:1px solid var(--bd);margin-top:10px;padding-top:10px"><h3>Demonstração CW — efeito Doppler</h3><p>O gráfico representa uma onda recebida. A mudança de frequência depende da velocidade radial relativa; o sinal não fornece distância neste modelo CW simples.</p><label for="cw-velocity">Velocidade radial simulada: <output id="cw-velocity-value">+10</output> m/s</label><input id="cw-velocity" type="range" min="-30" max="30" step="1" value="10" style="width:100%"><div id="cw-frequency" style="font-size:13px;color:var(--ac);margin:8px 0">Deslocamento Doppler ilustrativo: +667 Hz</div><svg id="cw-wave" viewBox="0 0 320 90" role="img" aria-label="Representação ilustrativa da onda recebida" style="width:100%;background:#09111b;border-radius:6px"><path d="M0 45H320" stroke="#52677c" stroke-dasharray="4 4"/><path id="cw-wave-path" fill="none" stroke="#58b8ff" stroke-width="2"/></svg><p style="font-size:12px;color:var(--mu)">Modelo didático simplificado: frequência de referência ilustrativa de 10 GHz. Não representa um equipamento real nem mede alcance.</p></section>';
  detail.querySelector('h3').textContent=item.id+' — '+item.name;
  detail.querySelector('div').textContent='Ficha técnica educativa do catálogo.';
  detail.querySelector('[data-field="category"]').textContent=item.category;
  detail.querySelector('[data-field="status"]').textContent=item.status;
- detail.querySelector('[data-field="level"]').textContent=item.id==='WSR'?'Modelo meteorológico sintético existente':item.status==='Parcial'?'Protótipo incompleto':'Ainda não avaliada';
- detail.querySelector('[data-field="scope"]').textContent=item.id==='WSR'?'Usa o motor meteorológico sintético já existente no KSBX: refletividade, velocidade e produtos derivados.':item.id==='Dual-Pol'?'Protótipo educativo: usa refletividade e CC sintético. ZDR e KDP ainda não estão implementados.':'Descrição conceitual; sem parâmetros operacionais ou capacidades de emprego real.';
- const activate=detail.querySelector('#tech-activate');activate.hidden=!['WSR','Dual-Pol'].includes(item.id);
- activate.onclick=()=>{prod=item.id==='WSR'?'BR':'CC';const b=$('pb').querySelector('[data-p="'+prod+'"]');if(b){[...$('pb').children].forEach(x=>x.classList.toggle('on',x===b));}draw();detail.querySelector('#tech-active-note').textContent=item.id==='WSR'?'WSR sintético ativado: visualização de refletividade.':'Dual-Pol experimental ativado: visualização de CC sintético; ZDR/KDP ainda indisponíveis.';};
+ detail.querySelector('[data-field="level"]').textContent=item.id==='CW'?'Demonstração conceitual do efeito Doppler':item.id==='WSR'?'Modelo meteorológico sintético existente':item.status==='Parcial'?'Protótipo incompleto':'Ainda não avaliada';
+ detail.querySelector('[data-field="scope"]').textContent=item.id==='CW'?'O modelo demonstra a relação entre movimento radial e deslocamento Doppler. CW simples não determina distância; não é um radar pulsado.':item.id==='WSR'?'Usa o motor meteorológico sintético já existente no KSBX: refletividade, velocidade e produtos derivados.':item.id==='Dual-Pol'?'Protótipo educativo: usa refletividade e CC sintético. ZDR e KDP ainda não estão implementados.':'Descrição conceitual; sem parâmetros operacionais ou capacidades de emprego real.';
+ const activate=detail.querySelector('#tech-activate');
+ activate.hidden=!['CW','WSR','Dual-Pol'].includes(item.id);
+ activate.textContent=item.id==='CW'?'Abrir demonstração CW':'Ativar no simulador';
+ activate.onclick=()=>{
+  const note=detail.querySelector('#tech-active-note');
+  if(item.id==='CW'){
+   const panel=detail.querySelector('#cw-panel');panel.hidden=false;
+   const slider=detail.querySelector('#cw-velocity');
+   const update=()=>{
+    const velocity=Number(slider.value),doppler=Math.round(velocity*66.7);
+    detail.querySelector('#cw-velocity-value').textContent=(velocity>0?'+':'')+velocity;
+    detail.querySelector('#cw-frequency').textContent='Deslocamento Doppler ilustrativo: '+(doppler>0?'+':'')+doppler+' Hz';
+    const cycles=2+Math.abs(velocity)/5,phase=velocity<0?Math.PI:0;
+    let path='';for(let x=0;x<=320;x+=2){const y=45-Math.sin(x/320*cycles*2*Math.PI+phase)*25;path+=(x===0?'M':'L')+x.toFixed(1)+' '+y.toFixed(1)+' ';}
+    detail.querySelector('#cw-wave-path').setAttribute('d',path);
+   };
+   slider.oninput=update;update();
+   note.textContent='Demonstração CW aberta. Ajuste a velocidade radial e observe a representação da onda.';
+  }else{
+   prod=item.id==='WSR'?'BR':'CC';
+   const b=$('pb').querySelector('[data-p="'+prod+'"]');
+   if(b){[...$('pb').children].forEach(x=>x.classList.toggle('on',x===b));}
+   draw();
+   note.textContent=item.id==='WSR'?'WSR sintético ativado: visualização de refletividade.':'Dual-Pol experimental ativado: visualização de CC sintético; ZDR/KDP ainda indisponíveis.';
+  }
+ };
 }
 function renderCatalog(){
  const q=$('tech-search').value.trim().toLowerCase(),root=$('catalog-list');root.innerHTML='';
