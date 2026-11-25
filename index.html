@@ -28,14 +28,14 @@ label{color:var(--mu);display:flex;align-items:center;gap:6px}
 .tech small{color:var(--mu);text-align:right}
 .tech b{color:#dceaf7}
 .tech-group{color:var(--ac);font-weight:600;margin:12px 0 3px}
-#catalog-detail{border-top:1px solid var(--bd);margin-top:10px;padding-top:9px;color:var(--mu);line-height:1.45}
+#catalog-detail{border-top:1px solid var(--bd);margin-top:10px;padding-top:9px;color:var(--mu);line-height:1.45}#catalog-detail h3{color:var(--tx);margin:0 0 5px;font-size:15px}#catalog-detail dl{display:grid;grid-template-columns:90px 1fr;gap:5px;margin:10px 0}#catalog-detail dt{color:var(--mu)}#catalog-detail dd{margin:0;color:var(--tx)}.tech.selected{border-color:var(--ac);background:#17344b}
 </style></head><body>
 <div id="bar"><div class="t"><b>KSBX Sandbox</b><div>VCP 212: modo precipitação</div></div>
 <span id="pb"></span><select id="tl" aria-label="Elevação"></select>
 <select id="sc" aria-label="Cenário"><option value="line">Linha de instabilidade</option><option value="super">Supercélula</option><option value="strat">Chuva estratiforme</option></select>
 <button id="pl" aria-label="Pausar ou tocar">⏸</button><button id="cat" type="button">Catálogo</button>
 <label><input type="checkbox" id="da"> Desdobrar velocidade</label></div>
-<aside id="catalog" aria-label="Catálogo de tecnologias de radar"><h2>Catálogo de tecnologias</h2><p>Biblioteca educativa. “Planejado” indica que a tecnologia ainda não possui um modelo próprio no simulador.</p><input id="tech-search" type="search" placeholder="Buscar sigla ou nome..." aria-label="Buscar tecnologia"><div id="catalog-list"></div><div id="catalog-detail">Selecione uma tecnologia para ver seus dados.</div></aside><canvas id="c"></canvas><canvas id="cb"></canvas>
+<aside id="catalog" aria-label="Catálogo de tecnologias de radar"><h2>Catálogo de tecnologias</h2><p>Biblioteca educativa. “Planejado” indica que a tecnologia ainda não possui um modelo próprio no simulador.</p><input id="tech-search" type="search" placeholder="Buscar sigla ou nome..." aria-label="Buscar tecnologia"><div id="catalog-count" aria-live="polite"></div><div id="catalog-list"></div><div id="catalog-detail">Selecione uma tecnologia para ver seus dados.</div></aside><canvas id="c"></canvas><canvas id="cb"></canvas>
 <div class="ov" id="il"></div><div class="ov" id="ir"></div><div id="rd" hidden></div>
 <script>
 (()=>{'use strict';
@@ -57,11 +57,24 @@ const TECH=[
 ['EWR','Vigilância e defesa (visão geral)','Early Warning Radar'],['BMEWS','Vigilância e defesa (visão geral)','Ballistic Missile Early Warning System'],['FCR','Vigilância e defesa (visão geral)','Fire-Control Radar'],['TAR','Vigilância e defesa (visão geral)','Target Acquisition Radar'],['TTR','Vigilância e defesa (visão geral)','Target Tracking Radar'],['GCI','Vigilância e defesa (visão geral)','Ground-Controlled Interception'],['C-RAM','Vigilância e defesa (visão geral)','Counter-Rocket, Artillery and Mortar radar'],['GSR','Vigilância e defesa (visão geral)','Ground Surveillance Radar'],
 ['SRR','Classes por alcance','Short-Range Radar'],['MRR','Classes por alcance','Medium-Range Radar'],['LRR','Classes por alcance','Long-Range Radar'],['4D Imaging Radar','Imageamento e sensoriamento','Radar de imageamento 4D']
 ].map(([id,category,name])=>({id,category,name,status:['WSR','Dual-Pol'].includes(id)?'Parcial':'Planejado'}));
+let selectedTech=null;
+function showTech(item){
+ selectedTech=item;
+ const detail=$('catalog-detail');detail.innerHTML='<h3></h3><div></div><dl><dt>Categoria</dt><dd data-field="category"></dd><dt>Estado</dt><dd data-field="status"></dd><dt>Fidelidade</dt><dd data-field="level"></dd><dt>Escopo</dt><dd data-field="scope"></dd></dl>';
+ detail.querySelector('h3').textContent=item.id+' — '+item.name;
+ detail.querySelector('div').textContent='Ficha técnica educativa do catálogo.';
+ detail.querySelector('[data-field="category"]').textContent=item.category;
+ detail.querySelector('[data-field="status"]').textContent=item.status;
+ detail.querySelector('[data-field="level"]').textContent=item.status==='Parcial'?'Modelo simplificado':'Ainda não avaliada';
+ detail.querySelector('[data-field="scope"]').textContent='Descrição conceitual; sem parâmetros operacionais ou capacidades de emprego real.';
+}
 function renderCatalog(){
  const q=$('tech-search').value.trim().toLowerCase(),root=$('catalog-list');root.innerHTML='';
- const groups={};for(const item of TECH){if(!(item.id+' '+item.name+' '+item.category).toLowerCase().includes(q))continue;(groups[item.category]??=[]).push(item)}
+ const matches=TECH.filter(item=>(item.id+' '+item.name+' '+item.category).toLowerCase().includes(q));
+ $('catalog-count').textContent=matches.length+' de '+TECH.length+' tecnologias';
+ const groups={};for(const item of matches)(groups[item.category]??=[]).push(item);
  for(const [group,items] of Object.entries(groups)){const h=document.createElement('div');h.className='tech-group';h.textContent=group;root.append(h);
-  for(const item of items){const b=document.createElement('button');b.className='tech';b.type='button';b.innerHTML='<span><b></b><br><small></small></span><small></small>';b.querySelector('b').textContent=item.id;b.querySelector('span small').textContent=item.name;b.lastElementChild.textContent=item.status;b.onclick=()=>{$('catalog-detail').textContent=item.id+' — '+item.name+'. Categoria: '+item.category+'. Estado: '+item.status+'. Esta ficha é informativa; ainda não representa uma simulação funcional.'};root.append(b)}}
+  for(const item of items){const b=document.createElement('button');b.className='tech'+(selectedTech===item?' selected':'');b.type='button';b.innerHTML='<span><b></b><br><small></small></span><small></small>';b.querySelector('b').textContent=item.id;b.querySelector('span small').textContent=item.name;b.lastElementChild.textContent=item.status;b.onclick=()=>{showTech(item);renderCatalog()};root.append(b)}}
  if(!root.children.length)root.textContent='Nenhuma tecnologia encontrada.';
 }
 
