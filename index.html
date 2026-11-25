@@ -56,7 +56,7 @@ const TECH=[
 ['PSR','Aeronáuticos','Primary Surveillance Radar'],['SSR','Aeronáuticos','Secondary Surveillance Radar'],['MSSR','Aeronáuticos','Monopulse Secondary Surveillance Radar'],['ASR','Aeronáuticos','Airport Surveillance Radar'],['ARSR','Aeronáuticos','Air Route Surveillance Radar'],['SMR','Aeronáuticos','Surface Movement Radar'],['ASDE','Aeronáuticos','Airport Surface Detection Equipment'],['RALT','Altimetria e navegação','Radar Altimeter'],['RADALT','Altimetria e navegação','Radar Altimeter'],['WXR','Meteorológicos','Weather Radar (aeronáutico)'],
 ['EWR','Vigilância e defesa (visão geral)','Early Warning Radar'],['BMEWS','Vigilância e defesa (visão geral)','Ballistic Missile Early Warning System'],['FCR','Vigilância e defesa (visão geral)','Fire-Control Radar'],['TAR','Vigilância e defesa (visão geral)','Target Acquisition Radar'],['TTR','Vigilância e defesa (visão geral)','Target Tracking Radar'],['GCI','Vigilância e defesa (visão geral)','Ground-Controlled Interception'],['C-RAM','Vigilância e defesa (visão geral)','Counter-Rocket, Artillery and Mortar radar'],['GSR','Vigilância e defesa (visão geral)','Ground Surveillance Radar'],
 ['SRR','Classes por alcance','Short-Range Radar'],['MRR','Classes por alcance','Medium-Range Radar'],['LRR','Classes por alcance','Long-Range Radar'],['4D Imaging Radar','Imageamento e sensoriamento','Radar de imageamento 4D']
-].map(([id,category,name])=>({id,category,name,status:id==='WSR'?'Disponível (sintético)':id==='Dual-Pol'?'Parcial':'Planejado'}));
+].map(([id,category,name])=>({id,category,name,status:id==='CW'||id==='FMCW'?'Disponível (educativo)':id==='WSR'?'Disponível (sintético)':id==='Dual-Pol'?'Parcial':'Planejado'}));
 let selectedTech=null;
 function showTech(item){
  selectedTech=item;
