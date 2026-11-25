@@ -16,13 +16,26 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #cb{position:absolute;left:0;bottom:0;width:100%;height:24px;z-index:1}
 #rd{position:absolute;z-index:2;right:12px;top:96px;background:#000b;border:1px solid var(--bd);padding:4px 8px;border-radius:6px;pointer-events:none}
 label{color:var(--mu);display:flex;align-items:center;gap:6px}
+
+#cat{border-color:#3979a4}
+#catalog{position:absolute;z-index:5;right:12px;top:82px;bottom:34px;width:min(390px,calc(100vw - 24px));background:#101a27f5;border:1px solid var(--bd);border-radius:9px;padding:12px;display:none;overflow:auto;box-shadow:0 10px 35px #0009}
+#catalog.open{display:block}
+#catalog h2{font-size:16px;margin:0 0 8px}
+#catalog p{color:var(--mu);line-height:1.4;margin:5px 0 10px}
+#catalog input{width:100%;background:#0b131e;color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:9px;margin-bottom:9px;font:inherit}
+#catalog-list{display:grid;gap:5px}
+.tech{display:flex;justify-content:space-between;gap:8px;align-items:center;text-align:left;width:100%;min-height:38px}
+.tech small{color:var(--mu);text-align:right}
+.tech b{color:#dceaf7}
+.tech-group{color:var(--ac);font-weight:600;margin:12px 0 3px}
+#catalog-detail{border-top:1px solid var(--bd);margin-top:10px;padding-top:9px;color:var(--mu);line-height:1.45}
 </style></head><body>
 <div id="bar"><div class="t"><b>KSBX Sandbox</b><div>VCP 212: modo precipitação</div></div>
 <span id="pb"></span><select id="tl" aria-label="Elevação"></select>
 <select id="sc" aria-label="Cenário"><option value="line">Linha de instabilidade</option><option value="super">Supercélula</option><option value="strat">Chuva estratiforme</option></select>
-<button id="pl" aria-label="Pausar ou tocar">⏸</button>
+<button id="pl" aria-label="Pausar ou tocar">⏸</button><button id="cat" type="button">Catálogo</button>
 <label><input type="checkbox" id="da"> Desdobrar velocidade</label></div>
-<canvas id="c"></canvas><canvas id="cb"></canvas>
+<aside id="catalog" aria-label="Catálogo de tecnologias de radar"><h2>Catálogo de tecnologias</h2><p>Biblioteca educativa. “Planejado” indica que a tecnologia ainda não possui um modelo próprio no simulador.</p><input id="tech-search" type="search" placeholder="Buscar sigla ou nome..." aria-label="Buscar tecnologia"><div id="catalog-list"></div><div id="catalog-detail">Selecione uma tecnologia para ver seus dados.</div></aside><canvas id="c"></canvas><canvas id="cb"></canvas>
 <div class="ov" id="il"></div><div class="ov" id="ir"></div><div id="rd" hidden></div>
 <script>
 (()=>{'use strict';
@@ -30,6 +43,28 @@ const RM=230,NAZ=720,NG=460,GT=RM/NG,D=Math.PI/180,RE=8495,VN=26;
 const $=i=>document.getElementById(i),cv=$('c'),cx=cv.getContext('2d'),cb=$('cb'),bx=cb.getContext('2d');
 let scen='line',prod='BR',tilt=0.5,t=0,play=true,dea=false,cur=null,drag=null;
 const view={x:0,y:0,s:Math.min(innerWidth,innerHeight)/280};
+
+/* ---------- catálogo educativo de tecnologias ---------- */
+const TECH=[
+['CW','Ondas e formas de onda','Continuous-Wave Radar'],['FMCW','Ondas e formas de onda','Frequency-Modulated Continuous-Wave Radar'],['SFCW','Ondas e formas de onda','Stepped-Frequency Continuous-Wave Radar'],['UWB','Ondas e formas de onda','Ultra-Wideband Radar'],
+['PD','Processamento e modos','Pulse-Doppler'],['LPI','Processamento e modos','Low Probability of Intercept'],['MTI','Processamento e modos','Moving Target Indication'],['AMTI','Processamento e modos','Airborne Moving Target Indication'],['GMTI','Processamento e modos','Ground Moving Target Indication'],['ARPA','Processamento e modos','Automatic Radar Plotting Aid'],
+['PESA','Antenas e arquiteturas','Passive Electronically Scanned Array'],['AESA','Antenas e arquiteturas','Active Electronically Scanned Array'],['MIMO','Antenas e arquiteturas','Multiple-Input Multiple-Output'],
+['PCL','Passivos e além do horizonte','Passive Coherent Location'],['OTH','Passivos e além do horizonte','Over-the-Horizon Radar'],['OTHR','Passivos e além do horizonte','Over-the-Horizon Radar'],['ROTHR','Passivos e além do horizonte','Relocatable Over-the-Horizon Radar'],['SWR','Passivos e além do horizonte','Sigla dependente do contexto'],['HFSWR','Passivos e além do horizonte','High-Frequency Surface-Wave Radar'],
+['SLAR','Imageamento e sensoriamento','Side-Looking Airborne Radar'],['SAR','Imageamento e sensoriamento','Synthetic Aperture Radar'],['InSAR','Imageamento e sensoriamento','Interferometric SAR'],['DInSAR','Imageamento e sensoriamento','Differential Interferometric SAR'],['PSInSAR','Imageamento e sensoriamento','Persistent Scatterer Interferometry'],['PolSAR','Imageamento e sensoriamento','Polarimetric SAR'],['PolInSAR','Imageamento e sensoriamento','Polarimetric Interferometric SAR'],['ISAR','Imageamento e sensoriamento','Inverse Synthetic Aperture Radar'],
+['GPR','Subsuperfície e medição','Ground-Penetrating Radar'],['TWR','Subsuperfície e medição','Through-Wall Radar'],['LPR','Subsuperfície e medição','License-Plate Recognition Radar (uso da sigla varia)'],
+['WSR','Meteorológicos','Weather Surveillance Radar'],['Dual-Pol','Meteorológicos','Dual-Polarization Weather Radar'],['DOW','Meteorológicos','Doppler on Wheels'],['PAR','Meteorológicos','Phased-Array Radar'],['TDWR','Meteorológicos','Terminal Doppler Weather Radar'],['WPR','Meteorológicos','Wind Profiler Radar'],['RASS','Meteorológicos','Radio Acoustic Sounding System'],['MMCR','Meteorológicos','Millimeter-Wave Cloud Radar'],
+['PSR','Aeronáuticos','Primary Surveillance Radar'],['SSR','Aeronáuticos','Secondary Surveillance Radar'],['MSSR','Aeronáuticos','Monopulse Secondary Surveillance Radar'],['ASR','Aeronáuticos','Airport Surveillance Radar'],['ARSR','Aeronáuticos','Air Route Surveillance Radar'],['SMR','Aeronáuticos','Surface Movement Radar'],['ASDE','Aeronáuticos','Airport Surface Detection Equipment'],['RALT','Altimetria e navegação','Radar Altimeter'],['RADALT','Altimetria e navegação','Radar Altimeter'],['WXR','Meteorológicos','Weather Radar (aeronáutico)'],
+['EWR','Vigilância e defesa (visão geral)','Early Warning Radar'],['BMEWS','Vigilância e defesa (visão geral)','Ballistic Missile Early Warning System'],['FCR','Vigilância e defesa (visão geral)','Fire-Control Radar'],['TAR','Vigilância e defesa (visão geral)','Target Acquisition Radar'],['TTR','Vigilância e defesa (visão geral)','Target Tracking Radar'],['GCI','Vigilância e defesa (visão geral)','Ground-Controlled Interception'],['C-RAM','Vigilância e defesa (visão geral)','Counter-Rocket, Artillery and Mortar radar'],['GSR','Vigilância e defesa (visão geral)','Ground Surveillance Radar'],
+['SRR','Classes por alcance','Short-Range Radar'],['MRR','Classes por alcance','Medium-Range Radar'],['LRR','Classes por alcance','Long-Range Radar'],['4D Imaging Radar','Imageamento e sensoriamento','Radar de imageamento 4D']
+].map(([id,category,name])=>({id,category,name,status:['WSR','Dual-Pol'].includes(id)?'Parcial':'Planejado'}));
+function renderCatalog(){
+ const q=$('tech-search').value.trim().toLowerCase(),root=$('catalog-list');root.innerHTML='';
+ const groups={};for(const item of TECH){if(!(item.id+' '+item.name+' '+item.category).toLowerCase().includes(q))continue;(groups[item.category]??=[]).push(item)}
+ for(const [group,items] of Object.entries(groups)){const h=document.createElement('div');h.className='tech-group';h.textContent=group;root.append(h);
+  for(const item of items){const b=document.createElement('button');b.className='tech';b.type='button';b.innerHTML='<span><b></b><br><small></small></span><small></small>';b.querySelector('b').textContent=item.id;b.querySelector('span small').textContent=item.name;b.lastElementChild.textContent=item.status;b.onclick=()=>{$('catalog-detail').textContent=item.id+' — '+item.name+'. Categoria: '+item.category+'. Estado: '+item.status+'. Esta ficha é informativa; ainda não representa uma simulação funcional.'};root.append(b)}}
+ if(!root.children.length)root.textContent='Nenhuma tecnologia encontrada.';
+}
+
 /* ---------- ruído determinístico ---------- */
 const hs=(i,j,k)=>{let n=Math.imul(i,374761393)^Math.imul(j,668265263)^Math.imul(k,1103515245);n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967295};
 const vn=(x,y,k)=>{const i=Math.floor(x),j=Math.floor(y),fx=x-i,fy=y-j,u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);return(hs(i,j,k)*(1-u)+hs(i+1,j,k)*u)*(1-v)+(hs(i,j+1,k)*(1-u)+hs(i+1,j+1,k)*u)*v};
@@ -138,6 +173,8 @@ $('pb').onclick=e=>{const b=e.target.closest('button');if(!b)return;prod=b.datas
 $('tl').onchange=e=>{tilt=+e.target.value;draw()};
 $('sc').onchange=e=>{scen=e.target.value;build(scen);cache.clear();t=0;draw()};
 $('pl').onclick=()=>{play=!play;$('pl').textContent=play?'⏸':'▶'};
+$('cat').onclick=()=>{$('catalog').classList.toggle('open');if($('catalog').classList.contains('open'))renderCatalog()};
+$('tech-search').oninput=renderCatalog;
 $('da').onchange=e=>{dea=e.target.checked;draw()};
 cv.onpointerdown=e=>{drag={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing'};
 cv.onpointerup=()=>{drag=null;cv.style.cursor='grab'};
