@@ -56,17 +56,19 @@ const TECH=[
 ['PSR','Aeronáuticos','Primary Surveillance Radar'],['SSR','Aeronáuticos','Secondary Surveillance Radar'],['MSSR','Aeronáuticos','Monopulse Secondary Surveillance Radar'],['ASR','Aeronáuticos','Airport Surveillance Radar'],['ARSR','Aeronáuticos','Air Route Surveillance Radar'],['SMR','Aeronáuticos','Surface Movement Radar'],['ASDE','Aeronáuticos','Airport Surface Detection Equipment'],['RALT','Altimetria e navegação','Radar Altimeter'],['RADALT','Altimetria e navegação','Radar Altimeter'],['WXR','Meteorológicos','Weather Radar (aeronáutico)'],
 ['EWR','Vigilância e defesa (visão geral)','Early Warning Radar'],['BMEWS','Vigilância e defesa (visão geral)','Ballistic Missile Early Warning System'],['FCR','Vigilância e defesa (visão geral)','Fire-Control Radar'],['TAR','Vigilância e defesa (visão geral)','Target Acquisition Radar'],['TTR','Vigilância e defesa (visão geral)','Target Tracking Radar'],['GCI','Vigilância e defesa (visão geral)','Ground-Controlled Interception'],['C-RAM','Vigilância e defesa (visão geral)','Counter-Rocket, Artillery and Mortar radar'],['GSR','Vigilância e defesa (visão geral)','Ground Surveillance Radar'],
 ['SRR','Classes por alcance','Short-Range Radar'],['MRR','Classes por alcance','Medium-Range Radar'],['LRR','Classes por alcance','Long-Range Radar'],['4D Imaging Radar','Imageamento e sensoriamento','Radar de imageamento 4D']
-].map(([id,category,name])=>({id,category,name,status:['WSR','Dual-Pol'].includes(id)?'Parcial':'Planejado'}));
+].map(([id,category,name])=>({id,category,name,status:id==='WSR'?'Disponível (sintético)':id==='Dual-Pol'?'Parcial':'Planejado'}));
 let selectedTech=null;
 function showTech(item){
  selectedTech=item;
- const detail=$('catalog-detail');detail.innerHTML='<h3></h3><div></div><dl><dt>Categoria</dt><dd data-field="category"></dd><dt>Estado</dt><dd data-field="status"></dd><dt>Fidelidade</dt><dd data-field="level"></dd><dt>Escopo</dt><dd data-field="scope"></dd></dl>';
+ const detail=$('catalog-detail');detail.innerHTML='<h3></h3><div></div><dl><dt>Categoria</dt><dd data-field="category"></dd><dt>Estado</dt><dd data-field="status"></dd><dt>Fidelidade</dt><dd data-field="level"></dd><dt>Escopo</dt><dd data-field="scope"></dd></dl><button id="tech-activate" type="button" hidden>Ativar no simulador</button><p id="tech-active-note" aria-live="polite"></p>';
  detail.querySelector('h3').textContent=item.id+' — '+item.name;
  detail.querySelector('div').textContent='Ficha técnica educativa do catálogo.';
  detail.querySelector('[data-field="category"]').textContent=item.category;
  detail.querySelector('[data-field="status"]').textContent=item.status;
- detail.querySelector('[data-field="level"]').textContent=item.status==='Parcial'?'Modelo simplificado':'Ainda não avaliada';
- detail.querySelector('[data-field="scope"]').textContent='Descrição conceitual; sem parâmetros operacionais ou capacidades de emprego real.';
+ detail.querySelector('[data-field="level"]').textContent=item.id==='WSR'?'Modelo meteorológico sintético existente':item.status==='Parcial'?'Protótipo incompleto':'Ainda não avaliada';
+ detail.querySelector('[data-field="scope"]').textContent=item.id==='WSR'?'Usa o motor meteorológico sintético já existente no KSBX: refletividade, velocidade e produtos derivados.':item.id==='Dual-Pol'?'Protótipo educativo: usa refletividade e CC sintético. ZDR e KDP ainda não estão implementados.':'Descrição conceitual; sem parâmetros operacionais ou capacidades de emprego real.';
+ const activate=detail.querySelector('#tech-activate');activate.hidden=!['WSR','Dual-Pol'].includes(item.id);
+ activate.onclick=()=>{prod=item.id==='WSR'?'BR':'CC';const b=$('pb').querySelector('[data-p="'+prod+'"]');if(b){[...$('pb').children].forEach(x=>x.classList.toggle('on',x===b));}draw();detail.querySelector('#tech-active-note').textContent=item.id==='WSR'?'WSR sintético ativado: visualização de refletividade.':'Dual-Pol experimental ativado: visualização de CC sintético; ZDR/KDP ainda indisponíveis.';};
 }
 function renderCatalog(){
  const q=$('tech-search').value.trim().toLowerCase(),root=$('catalog-list');root.innerHTML='';
