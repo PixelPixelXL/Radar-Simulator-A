@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Radar sintético</title>
+<title>Radar sintético — Multi-tipo</title>
 <style>
 :root{color-scheme:dark;--bg:#0b1018;--pn:#111a26;--bd:#263648;--tx:#e5edf5;--mu:#8fa2b8;--ac:#58b8ff}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:13px Inter,"Segoe UI",Arial,sans-serif;overflow:hidden}
 #bar{position:absolute;top:0;left:0;right:0;z-index:2;background:var(--pn);border-bottom:1px solid var(--bd);padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-#bar .t{margin-right:12px;line-height:1.25}#bar .t b{font-size:15px}#bar .t div{color:var(--mu);font-size:12px}
+#bar .t{margin-right:10px;line-height:1.25}#bar .t b{font-size:15px}#bar .t div{color:var(--mu);font-size:12px}
 button,select{background:#172332;color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;font:inherit;min-height:34px;cursor:pointer}
 button.on{background:#174a70;border-color:#327db2}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
@@ -16,299 +16,188 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 #cb{position:absolute;left:0;bottom:0;width:100%;height:24px;z-index:1}
 #rd{position:absolute;z-index:2;right:12px;top:96px;background:#000b;border:1px solid var(--bd);padding:4px 8px;border-radius:6px;pointer-events:none}
 label{color:var(--mu);display:flex;align-items:center;gap:6px}
-
-#cat{border-color:#3979a4}
-#catalog{position:absolute;z-index:5;right:12px;top:82px;bottom:34px;width:min(390px,calc(100vw - 24px));background:#101a27f5;border:1px solid var(--bd);border-radius:9px;padding:12px;display:none;overflow:auto;box-shadow:0 10px 35px #0009}
-#catalog.open{display:block}
-#catalog h2{font-size:16px;margin:0 0 8px}
-#catalog p{color:var(--mu);line-height:1.4;margin:5px 0 10px}
-#catalog input{width:100%;background:#0b131e;color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:9px;margin-bottom:9px;font:inherit}
-#catalog-list{display:grid;gap:5px}
-.tech{display:flex;justify-content:space-between;gap:8px;align-items:center;text-align:left;width:100%;min-height:38px}
-.tech small{color:var(--mu);text-align:right}
-.tech b{color:#dceaf7}
-.tech-group{color:var(--ac);font-weight:600;margin:12px 0 3px}
-#catalog-detail{border-top:1px solid var(--bd);margin-top:10px;padding-top:9px;color:var(--mu);line-height:1.45}#catalog-detail h3{color:var(--tx);margin:0 0 5px;font-size:15px}#catalog-detail dl{display:grid;grid-template-columns:90px 1fr;gap:5px;margin:10px 0}#catalog-detail dt{color:var(--mu)}#catalog-detail dd{margin:0;color:var(--tx)}.tech.selected{border-color:var(--ac);background:#17344b}
 </style></head><body>
-<div id="bar"><div class="t"><b>KSBX Sandbox</b><div>VCP 212: modo precipitação</div></div>
-<span id="pb"></span><select id="tl" aria-label="Elevação"></select>
-<select id="sc" aria-label="Cenário"><option value="line">Linha de instabilidade</option><option value="super">Supercélula</option><option value="strat">Chuva estratiforme</option></select>
-<button id="pl" aria-label="Pausar ou tocar">⏸</button><button id="cat" type="button">Catálogo</button>
-<label><input type="checkbox" id="da"> Desdobrar velocidade</label></div>
-<aside id="catalog" aria-label="Catálogo de tecnologias de radar"><h2>Catálogo de tecnologias</h2><p>Biblioteca educativa. “Planejado” indica que a tecnologia ainda não possui um modelo próprio no simulador.</p><input id="tech-search" type="search" placeholder="Buscar sigla ou nome..." aria-label="Buscar tecnologia"><div id="catalog-count" aria-live="polite"></div><div id="catalog-list"></div><div id="catalog-detail">Selecione uma tecnologia para ver seus dados.</div></aside><canvas id="c"></canvas><canvas id="cb"></canvas>
+<div id="bar">
+  <div class="t"><b id="ttl">KSBX Sandbox</b><div id="sub">VCP 212: modo precipitação</div></div>
+  <select id="rt" aria-label="Tipo de radar"></select>
+  <span id="pb"></span>
+  <select id="tl" aria-label="Elevação"></select>
+  <select id="sc" aria-label="Cenário">
+    <option value="line">Linha de instabilidade</option>
+    <option value="super">Supercélula</option>
+    <option value="strat">Chuva estratiforme</option>
+  </select>
+  <button id="pl" aria-label="Pausar ou tocar">⏸</button>
+  <label><input type="checkbox" id="da"> Desdobrar velocidade</label>
+</div>
+<canvas id="c"></canvas><canvas id="cb"></canvas>
 <div class="ov" id="il"></div><div class="ov" id="ir"></div><div id="rd" hidden></div>
 <script>
 (()=>{'use strict';
-const RM=230,NAZ=720,NG=460,GT=RM/NG,D=Math.PI/180,RE=8495,VN=26;
+const NAZ=720,NG=460,D=Math.PI/180,RE=8495,VN=26;
 const $=i=>document.getElementById(i),cv=$('c'),cx=cv.getContext('2d'),cb=$('cb'),bx=cb.getContext('2d');
-let scen='line',prod='BR',tilt=0.5,t=0,play=true,dea=false,cur=null,drag=null;
-const view={x:0,y:0,s:Math.min(innerWidth,innerHeight)/280};
 
-/* ---------- catálogo educativo de tecnologias ---------- */
-const TECH=[
-['CW','Ondas e formas de onda','Continuous-Wave Radar','Disponível (educativo)'],['FMCW','Ondas e formas de onda','Frequency-Modulated Continuous-Wave Radar','Disponível (educativo)'],['SFCW','Ondas e formas de onda','Stepped-Frequency Continuous-Wave Radar','Disponível (modelo SFCW)'],['UWB','Ondas e formas de onda','Ultra-Wideband Radar','Disponível (modelo de pulso)'],
-['PD','Processamento e modos','Pulse-Doppler'],['LPI','Processamento e modos','Low Probability of Intercept'],['MTI','Processamento e modos','Moving Target Indication'],['AMTI','Processamento e modos','Airborne Moving Target Indication'],['GMTI','Processamento e modos','Ground Moving Target Indication'],['ARPA','Processamento e modos','Automatic Radar Plotting Aid'],
-['PESA','Antenas e arquiteturas','Passive Electronically Scanned Array'],['AESA','Antenas e arquiteturas','Active Electronically Scanned Array'],['MIMO','Antenas e arquiteturas','Multiple-Input Multiple-Output'],
-['PCL','Passivos e além do horizonte','Passive Coherent Location'],['OTH','Passivos e além do horizonte','Over-the-Horizon Radar'],['OTHR','Passivos e além do horizonte','Over-the-Horizon Radar'],['ROTHR','Passivos e além do horizonte','Relocatable Over-the-Horizon Radar'],['SWR','Passivos e além do horizonte','Sigla dependente do contexto'],['HFSWR','Passivos e além do horizonte','High-Frequency Surface-Wave Radar'],
-['SLAR','Imageamento e sensoriamento','Side-Looking Airborne Radar'],['SAR','Imageamento e sensoriamento','Synthetic Aperture Radar'],['InSAR','Imageamento e sensoriamento','Interferometric SAR'],['DInSAR','Imageamento e sensoriamento','Differential Interferometric SAR'],['PSInSAR','Imageamento e sensoriamento','Persistent Scatterer Interferometry'],['PolSAR','Imageamento e sensoriamento','Polarimetric SAR'],['PolInSAR','Imageamento e sensoriamento','Polarimetric Interferometric SAR'],['ISAR','Imageamento e sensoriamento','Inverse Synthetic Aperture Radar'],
-['GPR','Subsuperfície e medição','Ground-Penetrating Radar'],['TWR','Subsuperfície e medição','Through-Wall Radar'],['LPR','Subsuperfície e medição','License-Plate Recognition Radar (uso da sigla varia)'],
-['WSR','Meteorológicos','Weather Surveillance Radar'],['Dual-Pol','Meteorológicos','Dual-Polarization Weather Radar'],['DOW','Meteorológicos','Doppler on Wheels'],['PAR','Meteorológicos','Phased-Array Radar'],['TDWR','Meteorológicos','Terminal Doppler Weather Radar'],['WPR','Meteorológicos','Wind Profiler Radar'],['RASS','Meteorológicos','Radio Acoustic Sounding System'],['MMCR','Meteorológicos','Millimeter-Wave Cloud Radar'],
-['PSR','Aeronáuticos','Primary Surveillance Radar'],['SSR','Aeronáuticos','Secondary Surveillance Radar'],['MSSR','Aeronáuticos','Monopulse Secondary Surveillance Radar'],['ASR','Aeronáuticos','Airport Surveillance Radar'],['ARSR','Aeronáuticos','Air Route Surveillance Radar'],['SMR','Aeronáuticos','Surface Movement Radar'],['ASDE','Aeronáuticos','Airport Surface Detection Equipment'],['RALT','Altimetria e navegação','Radar Altimeter'],['RADALT','Altimetria e navegação','Radar Altimeter'],['WXR','Meteorológicos','Weather Radar (aeronáutico)'],
-['EWR','Vigilância e defesa (visão geral)','Early Warning Radar'],['BMEWS','Vigilância e defesa (visão geral)','Ballistic Missile Early Warning System'],['FCR','Vigilância e defesa (visão geral)','Fire-Control Radar'],['TAR','Vigilância e defesa (visão geral)','Target Acquisition Radar'],['TTR','Vigilância e defesa (visão geral)','Target Tracking Radar'],['GCI','Vigilância e defesa (visão geral)','Ground-Controlled Interception'],['C-RAM','Vigilância e defesa (visão geral)','Counter-Rocket, Artillery and Mortar radar'],['GSR','Vigilância e defesa (visão geral)','Ground Surveillance Radar'],
-['SRR','Classes por alcance','Short-Range Radar'],['MRR','Classes por alcance','Medium-Range Radar'],['LRR','Classes por alcance','Long-Range Radar'],['4D Imaging Radar','Imageamento e sensoriamento','Radar de imageamento 4D']
-].map(([id,category,name])=>({id,category,name,status:id==='CW'||id==='FMCW'?'Disponível (educativo)':id==='SFCW'?'Disponível (modelo SFCW)':id==='UWB'?'Disponível (modelo de pulso)':id==='PD'?'Disponível (modelo Doppler sintético)':id==='LPI'?'Disponível (visualização conceitual)':id==='MTI'?'Disponível (modelo de filtro)':id==='AMTI'?'Disponível (modelo conceitual)':id==='GMTI'?'Disponível (visualização conceitual)':id==='ARPA'?'Disponível (modelo cinemático 2D)':id==='WSR'?'Disponível (sintético)':id==='Dual-Pol'?'Parcial':'Planejado'}));
-let selectedTech=null;
-function showTech(item){
- selectedTech=item;
- const detail=$('catalog-detail');
- detail.innerHTML='<h3></h3><div></div><dl><dt>Categoria</dt><dd data-field="category"></dd><dt>Estado</dt><dd data-field="status"></dd><dt>Fidelidade</dt><dd data-field="level"></dd><dt>Escopo</dt><dd data-field="scope"></dd></dl><button id="tech-activate" type="button" hidden>Ativar demonstração</button><p id="tech-active-note" aria-live="polite"></p><section id="cw-panel" hidden style="border-top:1px solid var(--bd);margin-top:10px;padding-top:10px"><h3>Demonstração CW — efeito Doppler</h3><p>O gráfico representa uma onda recebida. A mudança de frequência depende da velocidade radial relativa; o sinal não fornece distância neste modelo CW simples.</p><label for="cw-velocity">Velocidade radial simulada: <output id="cw-velocity-value">+10</output> m/s</label><input id="cw-velocity" type="range" min="-30" max="30" step="1" value="10" style="width:100%"><div id="cw-frequency" style="font-size:13px;color:var(--ac);margin:8px 0">Deslocamento Doppler ilustrativo: +667 Hz</div><svg id="cw-wave" viewBox="0 0 320 90" role="img" aria-label="Representação ilustrativa da onda recebida" style="width:100%;background:#09111b;border-radius:6px"><path d="M0 45H320" stroke="#52677c" stroke-dasharray="4 4"/><path id="cw-wave-path" fill="none" stroke="#58b8ff" stroke-width="2"/></svg><p style="font-size:12px;color:var(--mu)">Modelo didático simplificado: frequência de referência ilustrativa de 10 GHz. Não representa um equipamento real nem mede alcance.</p></section><section id="fmcw-panel" hidden style="border-top:1px solid var(--bd);margin-top:10px;padding-top:10px"><h3>Demonstração FMCW — chirp e batimento</h3><p>Um chirp linear varia a frequência ao longo do tempo. A diferença entre o sinal transmitido e o eco recebido produz uma frequência de batimento, relacionada à distância.</p><label for="fmcw-range">Distância simulada: <output id="fmcw-range-value">100 m</output></label><input id="fmcw-range" type="range" min="10" max="300" step="5" value="100" style="width:100%"><label for="fmcw-velocity">Velocidade radial simulada: <output id="fmcw-velocity-value">+5.0 m/s</output></label><input id="fmcw-velocity" type="range" min="-30" max="30" step="0.5" value="5" style="width:100%"><div style="background:#09111b;border-radius:6px;padding:10px;margin-top:8px"><div>Batimento ilustrativo: <b id="fmcw-beat" style="color:var(--ac)">—</b></div><div>Componente Doppler: <b id="fmcw-doppler">—</b></div><div>Resolução em distância teórica: <b id="fmcw-resolution">—</b></div></div><p style="font-size:12px;color:var(--mu)">Parâmetros didáticos assumidos: portadora de 77 GHz, largura de banda de 200 MHz e chirp de 1 ms. A conta de batimento é simplificada e não substitui processamento de sinais I/Q nem calibração de sensor real.</p></section><section id="sfcw-panel" hidden style="border-top:1px solid var(--bd);margin-top:10px;padding-top:10px"><h3>SFCW — resposta coerente e perfil de distância</h3><p>O modelo sintetiza ecos complexos em frequências discretas igualmente espaçadas. A IFFT converte a sequência de frequência em um perfil de distância; os picos correspondem aos refletores simulados.</p><label for="sfcw-bandwidth">Largura de banda: <output id="sfcw-bandwidth-value">400 MHz</output></label><input id="sfcw-bandwidth" type="range" min="100" max="1000" step="25" value="400" style="width:100%"><label for="sfcw-noise">Ruído de fase/amplitude: <output id="sfcw-noise-value">2%</output></label><input id="sfcw-noise" type="range" min="0" max="15" step="1" value="2" style="width:100%"><div style="background:#09111b;border-radius:6px;padding:9px;margin-top:8px"><div>Resolução teórica: <b id="sfcw-resolution" style="color:var(--ac)">—</b></div><div>Alcance não ambíguo: <b id="sfcw-unambiguous">—</b></div><div>Amostras coerentes: <b>128 frequências</b></div></div><svg id="sfcw-profile" viewBox="0 0 320 150" role="img" aria-label="Perfil de distância reconstruído por IFFT" style="width:100%;background:#09111b;border-radius:6px;margin-top:8px"><path d="M28 10V122H310" stroke="#52677c" fill="none"/><path id="sfcw-profile-path" d="" stroke="#58b8ff" stroke-width="1.8" fill="none"/><text x="30" y="140" fill="#8fa2b8" font-size="9">0 m</text><text id="sfcw-max-label" x="306" y="140" fill="#8fa2b8" font-size="9" text-anchor="end">—</text><text x="7" y="15" fill="#8fa2b8" font-size="9">Eco</text></svg><p style="font-size:12px;color:var(--mu)">Modelo coerente de banda-base: 128 passos uniformes, portadora de referência de 5,8 GHz, três refletores sintéticos e IFFT direta. Não inclui antena, canal multipercurso completo, calibração nem hardware real.</p></section><section id="uwb-panel" hidden style="border-top:1px solid var(--bd);margin-top:10px;padding-top:10px"><h3>UWB — pulsos ultracurtos e ecos sintéticos</h3><p>O UWB usa sinais de banda muito larga. Esta bancada gera um pulso monociclo gaussiano e soma ecos sintéticos atrasados para mostrar como a largura de banda afeta a resolução temporal e a separação entre ecos.</p><label for="uwb-bandwidth">Largura de banda ilustrativa: <output id="uwb-bandwidth-value">1.0 GHz</output></label><input id="uwb-bandwidth" type="range" min="500" max="2000" step="100" value="1000" style="width:100%"><label for="uwb-noise">Ruído sintético: <output id="uwb-noise-value">3%</output></label><input id="uwb-noise" type="range" min="0" max="15" step="1" value="3" style="width:100%"><div style="background:#09111b;border-radius:6px;padding:9px;margin-top:8px"><div>Resolução temporal aproximada: <b id="uwb-time-resolution" style="color:var(--ac)">—</b></div><div>Resolução espacial teórica: <b id="uwb-range-resolution">—</b></div><div>Janela exibida: <b>0–100 ns</b></div></div><svg id="uwb-wave" viewBox="0 0 320 150" role="img" aria-label="Pulso UWB e ecos sintéticos no domínio do tempo" style="width:100%;background:#09111b;border-radius:6px;margin-top:8px"><path d="M28 10V122H310" stroke="#52677c" fill="none"/><path id="uwb-wave-path" d="" stroke="#58b8ff" stroke-width="1.8" fill="none"/><text x="30" y="140" fill="#8fa2b8" font-size="9">0 ns</text><text x="306" y="140" fill="#8fa2b8" font-size="9" text-anchor="end">100 ns</text><text x="7" y="15" fill="#8fa2b8" font-size="9">Amplitude</text></svg><p style="font-size:12px;color:var(--mu)">Modelo temporal de laboratório com um pulso transmitido e três ecos artificiais. Não representa um dispositivo certificado, canal real, antena ou aplicação de localização.</p></section><section id="pd-panel" hidden style="border-top:1px solid var(--bd);margin-top:10px;padding-top:10px"><h3>PD — sequência de pulsos e espectro Doppler sintético</h3><p>Modelo de laboratório: uma sequência abstrata de ecos complexos é amostrada em pulsos sucessivos. A variação de fase entre pulsos produz um pico no espectro Doppler. Os dados são inteiramente sintéticos e não representam detecção ou acompanhamento de objetos reais.</p><label for="pd-frequency">Frequência Doppler normalizada: <output id="pd-frequency-value">0,18</output></label><input id="pd-frequency" type="range" min="-45" max="45" step="1" value="18" style="width:100%"><label for="pd-noise">Ruído sintético: <output id="pd-noise-value">5%</output></label><input id="pd-noise" type="range" min="0" max="20" step="1" value="5" style="width:100%"><div style="background:#09111b;border-radius:6px;padding:9px;margin-top:8px"><div>Frequência normalizada: <b id="pd-frequency-readout" style="color:var(--ac)">0,18</b></div><div>Pico espectral estimado: <b id="pd-peak">—</b></div><div>Amostras coerentes: <b>64 pulsos sintéticos</b></div></div><svg id="pd-spectrum" viewBox="0 0 320 150" role="img" aria-label="Espectro Doppler sintético de uma sequência de pulsos" style="width:100%;background:#09111b;border-radius:6px"><path d="M20 120H300M160 16V126" stroke="#52677c" stroke-width="1"/><path id="pd-spectrum-path" d="" stroke="#58b8ff" stroke-width="1.8" fill="none"/><text x="20" y="140" fill="#8fa2b8" font-size="9">−0,5</text><text x="300" y="140" fill="#8fa2b8" font-size="9" text-anchor="end">+0,5</text><text x="7" y="12" fill="#8fa2b8" font-size="9">Potência</text></svg><p style="font-size:12px;color:var(--mu)">Demonstração de processamento coerente em tempo lento e análise espectral simplificada; não inclui canal físico completo, ambiguidades de alcance/velocidade, clutter real ou hardware.</p></section><section id="lpi-panel" hidden style="border-top:1px solid var(--bd);margin-top:10px;padding-top:10px"><h3>LPI — conceito de emissão e distribuição espectral</h3><p>Esta visualização é conceitual: compara uma emissão concentrada em uma faixa estreita com energia distribuída por uma faixa mais ampla. Ela serve apenas para explicar a ideia geral de distribuição de energia no espectro.</p><div style="background:#09111b;border-radius:6px;padding:9px;margin-top:8px"><b>Representação esquemática — não está em escala</b><svg viewBox="0 0 320 170" role="img" aria-label="Comparação conceitual de energia espectral concentrada e distribuída" style="width:100%;margin-top:6px"><path d="M24 136H300M24 18V136" stroke="#52677c" fill="none"/><path d="M24 136 C115 136 137 134 151 24 C165 134 187 136 300 136" stroke="#ffb454" stroke-width="2" fill="none"/><path d="M24 136 C55 136 66 124 83 105 S112 66 139 60 S181 66 207 91 S251 133 300 136" stroke="#58b8ff" stroke-width="2" fill="none"/><text x="28" y="14" fill="#8fa2b8" font-size="9">Energia relativa</text><text x="160" y="158" fill="#8fa2b8" font-size="9" text-anchor="middle">Frequência (esquema)</text><text x="224" y="32" fill="#ffb454" font-size="9">Concentrada</text><text x="224" y="48" fill="#58b8ff" font-size="9">Distribuída</text></svg></div><p style="font-size:12px;color:var(--mu)">Não calcula probabilidade de interceptação, alcance de detecção nem parâmetros de emissão. Não representa um projeto LPI operacional, receptor ou cenário real.</p></section><section id="mti-panel" hidden style="border-top:1px solid var(--bd);margin-top:10px;padding-top:10px"><h3>MTI — cancelamento de componente estacionária</h3><p>Experimento matemático com uma sequência sintética: uma componente constante representa fundo estacionário e uma pequena componente variável representa mudança entre amostras. O filtro de diferença entre amostras consecutivas reduz a componente constante.</p><label for="mti-change">Variação da componente sintética: <output id="mti-change-value">0,20</output></label><input id="mti-change" type="range" min="2" max="45" step="1" value="20" style="width:100%"><label for="mti-background">Nível do fundo constante: <output id="mti-background-value">0,70</output></label><input id="mti-background" type="range" min="10" max="90" step="5" value="70" style="width:100%"><div style="background:#09111b;border-radius:6px;padding:9px;margin-top:8px"><div>Componente constante após filtragem: <b id="mti-residual">0</b></div><div>Amplitude variável após filtragem: <b id="mti-output">—</b></div></div><svg id="mti-chart" viewBox="0 0 320 170" role="img" aria-label="Comparação entre sequência sintética original e saída do filtro de diferença" style="width:100%;background:#09111b;border-radius:6px"><path d="M20 82H300M20 18V148" stroke="#52677c" fill="none"/><path id="mti-input-path" d="" stroke="#ffb454" stroke-width="1.5" fill="none"/><path id="mti-output-path" d="" stroke="#58b8ff" stroke-width="1.8" fill="none"/><text x="24" y="14" fill="#ffb454" font-size="9">Entrada</text><text x="78" y="14" fill="#58b8ff" font-size="9">Diferença</text><text x="160" y="164" fill="#8fa2b8" font-size="9" text-anchor="middle">Índice da amostra</text></svg><p style="font-size:12px;color:var(--mu)">Modelo didático de um filtro de duas amostras. Não simula clutter ambiental real, geometria, detecção, rastreamento ou parâmetros de um sistema operacional.</p></section><section id="amti-panel" hidden style="border-top:1px solid var(--bd);margin-top:10px;padding-top:10px"><h3>AMTI — referencia móvel (modelo conceitual)</h3><p>Esta bancada ilustra uma ideia abstrata: quando o observador se move, o movimento medido mistura a mudança do referencial com a variação relativa. Um termo de referência conhecido pode ser subtraído em um exemplo matemático sintético.</p><label for="amti-platform">Deslocamento comum do referencial: <output id="amti-platform-value">0,30</output></label><input id="amti-platform" type="range" min="-50" max="50" step="1" value="30" style="width:100%"><label for="amti-relative">Variação relativa sintética: <output id="amti-relative-value">0,15</output></label><input id="amti-relative" type="range" min="-40" max="40" step="1" value="15" style="width:100%"><div style="background:#09111b;border-radius:6px;padding:9px;margin-top:8px"><div>Valor aparente combinado: <b id="amti-apparent">—</b></div><div>Após remover o termo de referência: <b id="amti-corrected">—</b></div></div><svg viewBox="0 0 320 150" role="img" aria-label="Diagrama conceitual de referencial móvel e componente relativa" style="width:100%;background:#09111b;border-radius:6px"><path d="M24 112H296" stroke="#52677c"/><path d="M48 96H272" stroke="#ffb454" stroke-width="2"/><path d="M48 96L58 90V102Z" fill="#ffb454"/><path d="M272 96L262 90V102Z" fill="#ffb454"/><path d="M160 96V42" stroke="#58b8ff" stroke-width="2"/><path d="M160 42L154 52H166Z" fill="#58b8ff"/><text x="160" y="24" fill="#58b8ff" font-size="10" text-anchor="middle">Variação relativa</text><text x="160" y="128" fill="#ffb454" font-size="10" text-anchor="middle">Mudança comum do referencial</text></svg><p style="font-size:12px;color:var(--mu)">Modelo vetorial unidimensional e didático. Não representa compensação de movimento de aeronave, geometria de sensores, detecção, rastreamento ou parâmetros de emprego real.</p></section><section id="gmti-panel" hidden style="border-top:1px solid var(--bd);margin-top:10px;padding-top:10px"><h3>GMTI — mudanças em uma cena sintética</h3><p>Visualização abstrata de uma cena vista de cima: elementos fixos formam o fundo e alguns marcadores mudam de posição entre duas amostras. O objetivo é distinguir mudança temporal de elementos estacionários, sem mapa, coordenadas ou dados de alvos reais.</p><div style="background:#09111b;border-radius:6px;padding:9px"><b>Comparação de duas amostras</b><svg viewBox="0 0 320 170" role="img" aria-label="Cena abstrata com elementos fixos e marcadores que mudam de posição" style="width:100%;margin-top:6px"><path d="M20 20H300V150H20Z M20 63H300 M20 106H300 M90 20V150 M160 20V150 M230 20V150" stroke="#26394d" fill="none"/><g fill="#65788d"><circle cx="52" cy="42" r="4"/><circle cx="120" cy="83" r="4"/><circle cx="270" cy="127" r="4"/><circle cx="205" cy="43" r="4"/></g><g fill="#ffb454"><circle cx="76" cy="122" r="5"/><circle cx="180" cy="70" r="5"/></g><g fill="none" stroke="#58b8ff" stroke-width="2"><path d="M76 122L104 108M180 70L205 92"/><path d="M98 108L104 108L104 114M199 92L205 92L205 86"/></g><g fill="#58b8ff"><circle cx="104" cy="108" r="5"/><circle cx="205" cy="92" r="5"/></g><text x="26" y="164" fill="#8fa2b8" font-size="9">Cinza: fixo · Laranja: antes · Azul: depois</text></svg></div><p style="font-size:12px;color:var(--mu)">Ilustração conceitual apenas. Não implementa processamento GMTI real, compensação de plataforma, georreferenciamento, classificação ou acompanhamento de alvos.</p></section><section id="arpa-panel" hidden style="border-top:1px solid var(--bd);margin-top:10px;padding-top:10px"><h3>ARPA — aproximação relativa entre embarcações (simulada)</h3><p>Exercício de navegação: altere a posição e a velocidade relativa de uma embarcação fictícia para observar o ponto de maior aproximação (CPA) e o tempo até esse ponto (TCPA). Não use estes valores para navegação real.</p><label for="arpa-range">Distância inicial: <output id="arpa-range-value">8,0</output> milhas náuticas</label><input id="arpa-range" type="range" min="1" max="20" step="0.5" value="8" style="width:100%"><label for="arpa-bearing">Marcação relativa: <output id="arpa-bearing-value">45°</output></label><input id="arpa-bearing" type="range" min="0" max="359" step="1" value="45" style="width:100%"><label for="arpa-speed">Velocidade relativa: <output id="arpa-speed-value">12</output> nós</label><input id="arpa-speed" type="range" min="1" max="30" step="1" value="12" style="width:100%"><label for="arpa-course">Direção do movimento relativo: <output id="arpa-course-value">225°</output></label><input id="arpa-course" type="range" min="0" max="359" step="1" value="225" style="width:100%"><div style="background:#09111b;border-radius:6px;padding:9px;margin-top:8px"><div>CPA — distância de maior aproximação: <b id="arpa-cpa" style="color:var(--ac)">—</b></div><div>TCPA — tempo até o CPA: <b id="arpa-tcpa">—</b></div><div>Interpretação: <b id="arpa-status">—</b></div></div><p style="font-size:12px;color:var(--mu)">Modelo cinemático 2D idealizado, sem corrente, vento, manobra, incerteza de sensores ou regras completas de navegação. É apenas didático e não substitui equipamentos ou decisões náuticas.</p></section>'
- detail.querySelector('h3').textContent=item.id+' — '+item.name;
- detail.querySelector('div').textContent='Ficha técnica educativa do catálogo.';
- detail.querySelector('[data-field="category"]').textContent=item.category;
- detail.querySelector('[data-field="status"]').textContent=item.status;
- detail.querySelector('[data-field="level"]').textContent=item.id==='CW'?'Demonstração conceitual do efeito Doppler':item.id==='FMCW'?'Demonstração educativa de chirp, distância por frequência de batimento e velocidade radial':item.id==='WSR'?'Modelo meteorológico sintético existente':item.status==='Parcial'?'Protótipo incompleto':'Ainda não avaliada';
- detail.querySelector('[data-field="scope"]').textContent=item.id==='CW'?'O modelo demonstra a relação entre movimento radial e deslocamento Doppler. CW simples não determina distância; não é um radar pulsado.':item.id==='FMCW'?'O modelo didático usa uma rampa linear de frequência (chirp) e ilustra como a frequência de batimento se relaciona com distância e Doppler.':item.id==='WSR'?'Usa o motor meteorológico sintético já existente no KSBX: refletividade, velocidade e produtos derivados.':item.id==='Dual-Pol'?'Protótipo educativo: usa refletividade e CC sintético. ZDR e KDP ainda não estão implementados.':'Descrição conceitual; sem parâmetros operacionais ou capacidades de emprego real.';
- const activate=detail.querySelector('#tech-activate');
- activate.hidden=!['CW','FMCW','SFCW','UWB','PD','LPI','MTI','AMTI','GMTI','ARPA','WSR','Dual-Pol'].includes(item.id);
- activate.textContent=item.id==='CW'?'Abrir demonstração CW':item.id==='FMCW'?'Abrir demonstração FMCW':item.id==='SFCW'?'Abrir simulação SFCW':item.id==='UWB'?'Abrir bancada UWB':item.id==='PD'?'Abrir bancada Pulse-Doppler':item.id==='LPI'?'Ver conceito LPI':item.id==='MTI'?'Abrir demonstração MTI':item.id==='AMTI'?'Abrir modelo conceitual AMTI':item.id==='GMTI'?'Ver conceito GMTI':item.id==='ARPA'?'Abrir simulação ARPA':'Ativar no simulador';
- activate.onclick=()=>{
-  const note=detail.querySelector('#tech-active-note');
-  if(item.id==='FMCW'){
-   const panel=detail.querySelector('#fmcw-panel');panel.hidden=false;
-   const range=detail.querySelector('#fmcw-range'),velocity=detail.querySelector('#fmcw-velocity');
-   const update=()=>{
-    const R=Number(range.value),v=Number(velocity.value),B=200e6,T=1e-3,c=299792458,fc=77e9,S=B/T,lambda=c/fc;
-    const fb=2*S*R/c,fd=2*v/lambda,fr=Math.max(0,fb+fd),resolution=c/(2*B);
-    detail.querySelector('#fmcw-range-value').textContent=R.toFixed(0)+' m';
-    detail.querySelector('#fmcw-velocity-value').textContent=(v>0?'+':'')+v.toFixed(1)+' m/s';
-    detail.querySelector('#fmcw-beat').textContent=(fr/1000).toFixed(2)+' kHz';
-    detail.querySelector('#fmcw-resolution').textContent=resolution.toFixed(2)+' m';
-    detail.querySelector('#fmcw-doppler').textContent=(fd>0?'+':'')+fd.toFixed(1)+' Hz';
-   };
-   range.oninput=update;velocity.oninput=update;update();
-   note.textContent='Demonstração FMCW aberta. Ajuste distância e velocidade para observar a frequência de batimento ilustrativa.';
-  }else if(item.id==='UWB'){
-   const panel=detail.querySelector('#uwb-panel');panel.hidden=false;
-   const bandwidth=detail.querySelector('#uwb-bandwidth'),noise=detail.querySelector('#uwb-noise');
-   const update=()=>{
-    const B=Number(bandwidth.value)*1e6,sigma=Number(noise.value)/100,c=299792458;
-    const dt=1/B,dr=c/(2*B),samples=1000,dtNs=.1,echoes=[{delay:12,amp:.9},{delay:34,amp:.62},{delay:67,amp:.42}],values=[];
-    let seed=419;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
-    const pulse=(x)=>{const q=x/(dt*1e9*.32);return q*Math.exp(.5-.5*q*q)};
-    let peak=0;
-    for(let n=0;n<=samples;n++){const time=n*dtNs;let y=pulse(time-5)*.35;for(const e of echoes)y+=e.amp*pulse(time-e.delay);y+=(rand()-.5)*sigma*.35;values.push(y);peak=Math.max(peak,Math.abs(y))}
-    const points=[];for(let n=0;n<=samples;n+=3){const x=28+n/samples*280,y=66-values[n]/Math.max(peak,.001)*48;points.push((n?'L':'M')+x.toFixed(2)+' '+y.toFixed(2))}
-    detail.querySelector('#uwb-bandwidth-value').textContent=(B/1e9).toFixed(1)+' GHz';
-    detail.querySelector('#uwb-noise-value').textContent=(sigma*100).toFixed(0)+'%';
-    detail.querySelector('#uwb-time-resolution').textContent=(dt*1e9).toFixed(2)+' ns';
-    detail.querySelector('#uwb-range-resolution').textContent=dr.toFixed(3)+' m';
-    detail.querySelector('#uwb-wave-path').setAttribute('d',points.join(' '));
-   };
-   bandwidth.oninput=update;noise.oninput=update;update();
-   note.textContent='Bancada UWB aberta: pulso monociclo e ecos sintéticos no tempo. Ajuste a banda e o ruído para comparar a forma do sinal.';
-  }else if(item.id==='GMTI'){
-   const panel=detail.querySelector('#gmti-panel');panel.hidden=false;
-   note.textContent='Visualização GMTI conceitual aberta: compare elementos fixos e mudanças entre duas amostras sintéticas.';
-  }else if(item.id==='ARPA'){
-   const panel=detail.querySelector('#arpa-panel');panel.hidden=false;
-   const range=detail.querySelector('#arpa-range'),bearing=detail.querySelector('#arpa-bearing'),speed=detail.querySelector('#arpa-speed'),course=detail.querySelector('#arpa-course');
-   const update=()=>{
-    const R=Number(range.value),b=Number(bearing.value)*Math.PI/180,v=Number(speed.value),c=Number(course.value)*Math.PI/180;
-    const x=R*Math.sin(b),y=R*Math.cos(b),vx=v*Math.sin(c),vy=v*Math.cos(c),vv=vx*vx+vy*vy;
-    const t=-(x*vx+y*vy)/vv,cpa=Math.hypot(x+vx*t,y+vy*t);
-    detail.querySelector('#arpa-range-value').textContent=R.toFixed(1);
-    detail.querySelector('#arpa-bearing-value').textContent=bearing.value+'°';
-    detail.querySelector('#arpa-speed-value').textContent=v.toFixed(0);
-    detail.querySelector('#arpa-course-value').textContent=course.value+'°';
-    detail.querySelector('#arpa-cpa').textContent=cpa.toFixed(2)+' MN';
-    detail.querySelector('#arpa-tcpa').textContent=t>=0?(t/60).toFixed(1)+' min':'já passou pelo ponto de maior aproximação';
-    detail.querySelector('#arpa-status').textContent=t<0?'A aproximação mais próxima já ocorreu':cpa<1?'Aproximação próxima no cenário fictício':'Sem aproximação próxima neste cenário';
-   };
-   [range,bearing,speed,course].forEach(el=>el.oninput=update);update();
-   note.textContent='Simulação ARPA aberta: ajuste a geometria e o movimento relativo de embarcações fictícias para calcular CPA e TCPA.';
-  }else if(item.id==='AMTI'){
-   const panel=detail.querySelector('#amti-panel');panel.hidden=false;
-   const platform=detail.querySelector('#amti-platform'),relative=detail.querySelector('#amti-relative');
-   const update=()=>{
-    const p=Number(platform.value)/100,r=Number(relative.value)/100,apparent=p+r;
-    detail.querySelector('#amti-platform-value').textContent=p.toFixed(2);
-    detail.querySelector('#amti-relative-value').textContent=r.toFixed(2);
-    detail.querySelector('#amti-apparent').textContent=apparent.toFixed(2);
-    detail.querySelector('#amti-corrected').textContent=(apparent-p).toFixed(2);
-   };
-   platform.oninput=update;relative.oninput=update;update();
-   note.textContent='Modelo conceitual AMTI aberto: observe a soma de uma mudança comum do referencial e uma variação relativa sintética.';
-  }else if(item.id==='MTI'){
-   const panel=detail.querySelector('#mti-panel');panel.hidden=false;
-   const change=detail.querySelector('#mti-change'),background=detail.querySelector('#mti-background');
-   const update=()=>{
-    const a=Number(change.value)/100,b=Number(background.value)/100,N=64,input=[],output=[];
-    for(let n=0;n<N;n++){const varying=a*Math.sin(2*Math.PI*n/16);input.push(b+varying);output.push(n===0?0:(b+varying)-(b+a*Math.sin(2*Math.PI*(n-1)/16)))}
-    const inPoints=input.map((v,i)=>{const x=20+i/(N-1)*280,y=82-v*62;return(i?'L':'M')+x.toFixed(2)+' '+y.toFixed(2)}).join(' ');
-    const outPoints=output.map((v,i)=>{const x=20+i/(N-1)*280,y=82-v*62;return(i?'L':'M')+x.toFixed(2)+' '+y.toFixed(2)}).join(' ');
-    detail.querySelector('#mti-change-value').textContent=a.toFixed(2);
-    detail.querySelector('#mti-background-value').textContent=b.toFixed(2);
-    detail.querySelector('#mti-residual').textContent='0 (ideal)';
-    detail.querySelector('#mti-output').textContent=(2*a*Math.sin(Math.PI/16)).toFixed(3);
-    detail.querySelector('#mti-input-path').setAttribute('d',inPoints);
-    detail.querySelector('#mti-output-path').setAttribute('d',outPoints);
-   };
-   change.oninput=update;background.oninput=update;update();
-   note.textContent='Demonstração MTI aberta: compare a sequência original com a saída de um filtro de diferença entre amostras.';
-  }else if(item.id==='LPI'){
-   const panel=detail.querySelector('#lpi-panel');panel.hidden=false;
-   note.textContent='Visualização conceitual LPI aberta. O gráfico é esquemático e não calcula desempenho de interceptação.';
-  }else if(item.id==='PD'){
-   const panel=detail.querySelector('#pd-panel');panel.hidden=false;
-   const frequency=detail.querySelector('#pd-frequency'),noise=detail.querySelector('#pd-noise');
-   const update=()=>{
-    const N=64,f=Number(frequency.value)/100,sigma=Number(noise.value)/100;
-    let seed=947;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
-    const re=new Float64Array(N),im=new Float64Array(N);
-    for(let n=0;n<N;n++){
-     const phase=2*Math.PI*f*n,noisePhase=(rand()-.5)*sigma*.8;
-     const amp=1+(rand()-.5)*sigma;
-     re[n]=amp*Math.cos(phase+noisePhase);im[n]=amp*Math.sin(phase+noisePhase);
-    }
-    const spectrum=[];
-    for(let k=0;k<N;k++){
-     let sr=0,si=0;
-     for(let n=0;n<N;n++){const a=-2*Math.PI*k*n/N;sr+=re[n]*Math.cos(a)-im[n]*Math.sin(a);si+=re[n]*Math.sin(a)+im[n]*Math.cos(a)}
-     spectrum.push(Math.hypot(sr,si)/N);
-    }
-    const shifted=Array.from({length:N},(_,i)=>spectrum[(i+N/2)%N]);
-    const peak=Math.max(...shifted),peakIndex=shifted.indexOf(peak),peakFreq=(peakIndex-N/2)/N;
-    const points=shifted.map((v,i)=>{const x=20+i/(N-1)*280,y=120-v/Math.max(peak,.001)*96;return(i?'L':'M')+x.toFixed(2)+' '+y.toFixed(2)}).join(' ');
-    detail.querySelector('#pd-frequency-value').textContent=f.toFixed(2);
-    detail.querySelector('#pd-noise-value').textContent=(sigma*100).toFixed(0)+'%';
-    detail.querySelector('#pd-frequency-readout').textContent=f.toFixed(2);
-    detail.querySelector('#pd-peak').textContent=peakFreq.toFixed(3);
-    detail.querySelector('#pd-spectrum-path').setAttribute('d',points);
-   };
-   frequency.oninput=update;noise.oninput=update;update();
-   note.textContent='Bancada Pulse-Doppler aberta: sequência coerente sintética e espectro Doppler. Ajuste a frequência normalizada e o ruído.';
-  }else if(item.id==='SFCW'){
-   const panel=detail.querySelector('#sfcw-panel');panel.hidden=false;
-   const bandwidth=detail.querySelector('#sfcw-bandwidth'),noise=detail.querySelector('#sfcw-noise');
-   const update=()=>{
-    const N=128,B=Number(bandwidth.value)*1e6,sigma=Number(noise.value)/100,c=299792458,fc=5.8e9,df=B/N;
-    const targets=[{r:18,a:1},{r:43,a:.72},{r:78,a:.48}],real=new Float64Array(N),imag=new Float64Array(N);
-    let seed=731;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
-    for(let n=0;n<N;n++){
-     const freq=fc+n*df;let re=0,im=0;
-     for(const target of targets){const phase=-4*Math.PI*freq*target.r/c;re+=target.a*Math.cos(phase);im+=target.a*Math.sin(phase)}
-     const phaseNoise=(rand()-.5)*sigma*2*Math.PI,ampNoise=1+(rand()-.5)*sigma*2;
-     real[n]=ampNoise*(re*Math.cos(phaseNoise)-im*Math.sin(phaseNoise));
-     imag[n]=ampNoise*(re*Math.sin(phaseNoise)+im*Math.cos(phaseNoise));
-    }
-    const profile=new Float64Array(N);
-    for(let k=0;k<N;k++){let re=0,im=0;for(let n=0;n<N;n++){const a=2*Math.PI*k*n/N;re+=real[n]*Math.cos(a)-imag[n]*Math.sin(a);im+=real[n]*Math.sin(a)+imag[n]*Math.cos(a)}profile[k]=Math.hypot(re,im)/N}
-    const peak=Math.max(...profile),maxRange=c*N/(2*B),resolution=c/(2*B),points=[];
-    for(let k=0;k<N/2;k++){const x=28+(k/(N/2-1))*280,y=122-(profile[k]/peak)*104;points.push((k?'L':'M')+x.toFixed(2)+' '+y.toFixed(2))}
-    detail.querySelector('#sfcw-bandwidth-value').textContent=(B/1e6).toFixed(0)+' MHz';
-    detail.querySelector('#sfcw-noise-value').textContent=(sigma*100).toFixed(0)+'%';
-    detail.querySelector('#sfcw-resolution').textContent=resolution.toFixed(2)+' m';
-    detail.querySelector('#sfcw-unambiguous').textContent=maxRange.toFixed(1)+' m';
-    detail.querySelector('#sfcw-max-label').textContent=maxRange.toFixed(0)+' m';
-    detail.querySelector('#sfcw-profile-path').setAttribute('d',points.join(' '));
-   };
-   bandwidth.oninput=update;noise.oninput=update;update();
-   note.textContent='Simulação SFCW aberta: 128 amostras complexas, ecos coerentes e reconstrução de perfil por IFFT. Ajuste a banda e o ruído.';
-  }else if(item.id==='CW'){
-   const panel=detail.querySelector('#cw-panel');panel.hidden=false;
-   const slider=detail.querySelector('#cw-velocity');
-   const update=()=>{
-    const velocity=Number(slider.value),doppler=Math.round(velocity*66.7);
-    detail.querySelector('#cw-velocity-value').textContent=(velocity>0?'+':'')+velocity;
-    detail.querySelector('#cw-frequency').textContent='Deslocamento Doppler ilustrativo: '+(doppler>0?'+':'')+doppler+' Hz';
-    const cycles=2+Math.abs(velocity)/5,phase=velocity<0?Math.PI:0;
-    let path='';for(let x=0;x<=320;x+=2){const y=45-Math.sin(x/320*cycles*2*Math.PI+phase)*25;path+=(x===0?'M':'L')+x.toFixed(1)+' '+y.toFixed(1)+' ';}
-    detail.querySelector('#cw-wave-path').setAttribute('d',path);
-   };
-   slider.oninput=update;update();
-   note.textContent='Demonstração CW aberta. Ajuste a velocidade radial e observe a representação da onda.';
-  }else{
-   prod=item.id==='WSR'?'BR':'CC';
-   const b=$('pb').querySelector('[data-p="'+prod+'"]');
-   if(b){[...$('pb').children].forEach(x=>x.classList.toggle('on',x===b));}
-   draw();
-   note.textContent=item.id==='WSR'?'WSR sintético ativado: visualização de refletividade.':'Dual-Pol experimental ativado: visualização de CC sintético; ZDR/KDP ainda indisponíveis.';
-  }
- };
+/* ---------- perfis para todas as 59 siglas ---------- */
+const RAW_TYPES=[
+  'CW','FMCW','SFCW','UWB','PD','LPI','MTI','AMTI','GMTI',
+  'PESA','AESA','MIMO','PCL','OTH','OTHR','ROTHR','SWR','HFSWR',
+  'SLAR','SAR','InSAR','DInSAR','PSInSAR','PolSAR','PolInSAR','ISAR','GPR','TWR',
+  'WSR','Dual-Pol','DOW','PAR','TDWR','WPR','RASS','MMCR',
+  'PSR','SSR','MSSR','ASR','ARSR','SMR','ASDE','RALT','RADALT','WXR',
+  'EWR','BMEWS','FCR','TAR','TTR','GCI','C-RAM','GSR','ARPA',
+  'SRR','MRR','LRR','4D Imaging Radar','LPR'
+];
+
+const RADAR_TYPES={};
+for(const code of RAW_TYPES){
+  let rm=230, mode='polar', tag='Varredura polar', scale=1;
+  if(['SRR','LPR','TWR','GPR'].includes(code)){rm=25;mode='short';tag='Curto alcance / alta resolução';scale=.12}
+  else if(['MRR','4D Imaging Radar','SMR','ASDE','RALT','RADALT'].includes(code)){rm=80;mode='short';tag='Médio-curto alcance / precisão';scale=.35}
+  else if(['FMCW','SFCW','UWB','LPI'].includes(code)){rm=120;mode='chirp';tag='Modulação / banda larga / LPI';scale=.55}
+  else if(['CW','PD','MTI','AMTI','GMTI'].includes(code)){rm=200;mode='doppler';tag='Indicador de movimento / Doppler';scale=.9}
+  else if(['PESA','AESA','MIMO','PAR','PCL'].includes(code)){rm=230;mode='e-scan';tag='Varredura eletrônica / ágil';scale=1}
+  else if(['OTH','OTHR','ROTHR','SWR','HFSWR','EWR','BMEWS'].includes(code)){rm=320;mode='oth';tag='Longo alcance / além do horizonte';scale=1.35}
+  else if(['SLAR','SAR','InSAR','DInSAR','PSInSAR','PolSAR','PolInSAR','ISAR'].includes(code)){rm=220;mode='sar';tag='Imageamento / abertura sintética';scale=.95}
+  else if(['WPR','RASS','MMCR'].includes(code)){rm=160;mode='vert';tag='Sondagem / microfísica atmosférica';scale=.7}
+  else if(['WSR','Dual-Pol','DOW','TDWR','WXR'].includes(code)){rm=code==='DOW'?100:code==='TDWR'?120:230;mode='polar';tag='Meteorologia / precipitação';scale=code==='DOW'?.45:code==='TDWR'?.55:1}
+  else if(['PSR','SSR','MSSR','ASR','ARSR','FCR','TAR','TTR','GCI','C-RAM','GSR','ARPA','LRR'].includes(code)){rm=code==='ASR'?110:code==='ARSR'?300:230;mode='tactical';tag='Vigilância / rastreamento';scale=code==='ASR'?.5:code==='ARSR'?1.3:1}
+  RADAR_TYPES[code]={code,rm,mode,tag,scale};
 }
-function renderCatalog(){
- const q=$('tech-search').value.trim().toLowerCase(),root=$('catalog-list');root.innerHTML='';
- const matches=TECH.filter(item=>(item.id+' '+item.name+' '+item.category).toLowerCase().includes(q));
- $('catalog-count').textContent=matches.length+' de '+TECH.length+' tecnologias';
- const groups={};for(const item of matches)(groups[item.category]??=[]).push(item);
- for(const [group,items] of Object.entries(groups)){const h=document.createElement('div');h.className='tech-group';h.textContent=group;root.append(h);
-  for(const item of items){const b=document.createElement('button');b.className='tech'+(selectedTech===item?' selected':'');b.type='button';b.innerHTML='<span><b></b><br><small></small></span><small></small>';b.querySelector('b').textContent=item.id;b.querySelector('span small').textContent=item.name;b.lastElementChild.textContent=item.status;b.onclick=()=>{showTech(item);renderCatalog()};root.append(b)}}
- if(!root.children.length)root.textContent='Nenhuma tecnologia encontrada.';
-}
+
+let rtype='WSR',scen='line',prod='BR',tilt=0.5,t=0,play=true,dea=false,cur=null,drag=null;
+const view={x:0,y:0,s:Math.min(innerWidth,innerHeight)/280};
+const curType=()=>RADAR_TYPES[rtype];
+const gt=()=>curType().rm/NG;
 
 /* ---------- ruído determinístico ---------- */
 const hs=(i,j,k)=>{let n=Math.imul(i,374761393)^Math.imul(j,668265263)^Math.imul(k,1103515245);n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967295};
 const vn=(x,y,k)=>{const i=Math.floor(x),j=Math.floor(y),fx=x-i,fy=y-j,u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy);return(hs(i,j,k)*(1-u)+hs(i+1,j,k)*u)*(1-v)+(hs(i,j+1,k)*(1-u)+hs(i+1,j+1,k)*u)*v};
 const fbm=(x,y)=>vn(x,y,1)*.5+vn(x*2.1,y*2.1,2)*.3+vn(x*4.3,y*4.3,3)*.2;
 const rng=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let q=Math.imul(a^a>>>15,1|a);q=q+Math.imul(q^q>>>7,61|q)^q;return((q^q>>>14)>>>0)/4294967296};
-/* ---------- cenários: células (x,y km; s = escala km; z dBZ; top km; vo = saída de ar m/s) ---------- */
+
+/* ---------- cenários escalados pelo modo do radar ---------- */
 let C=[],DR=[0,0],MESO=null;
-function build(s){const r=rng(s=='line'?7:s=='super'?3:5);C=[];MESO=null;
- const add=(x,y,sz,z,top,vo)=>C.push({x,y,s2:sz*sz,z,top,vo:vo||0});
- if(s=='line'){const a=35*D,ux=Math.sin(a),uy=Math.cos(a),nx=Math.cos(a),ny=-Math.sin(a);DR=[nx,ny];
-  for(let k=-16;k<=16;k++){const al=k*6.5+(r()-.5)*3,ac=6-.0028*al*al+(r()-.5)*4;add(70+ux*al+nx*ac,15+uy*al+ny*ac,4+2*r(),50+8*r()-Math.abs(al)*.08,10+4*r(),13)}
-  for(let k=-11;k<=11;k++){const al=k*9,ac=-26+(r()-.5)*8;add(70+ux*al+nx*ac,15+uy*al+ny*ac,11,29+5*r(),7,0)}
- }else if(s=='super'){DR=[.72,.54];
-  add(55,28,7,62,15,12);add(78,46,16,44,11,0);add(28,40,10,35,9,0);add(120,-45,5,48,11,10);
-  for(let k=0;k<9;k++){const a=(30+k*26)*D;add(52+4.6*Math.sin(a),17+4.6*Math.cos(a),2.2,57-1.2*k,12,4)}
-  MESO={x:52,y:17,rc:1.4,vm:48};
- }else{DR=[.5,.35];const a=60*D,ux=Math.sin(a),uy=Math.cos(a);
-  for(let k=-9;k<=9;k++)add(60+ux*k*18+(r()-.5)*6,10+uy*k*18+(r()-.5)*6,18,31+8*r(),8,0);
-  for(let k=0;k<8;k++)add(30+r()*100,-30+r()*80,4,44+6*r(),10,6)}}
-const frame=t=>C.map(c=>({x:c.x+DR[0]*t,y:c.y+DR[1]*t,s2:c.s2,z:c.z,top:c.top,vo:c.vo}));
-/* refletividade em (x,y,z): perfil vertical + textura + banda brilhante */
-function zdb(F,x,y,z){let L=0;
- for(const c of F){const dx=x-c.x,dy=y-c.y,d2=dx*dx+dy*dy;if(d2>6*c.s2)continue;const f=z/c.top;if(f>=1)continue;L+=Math.pow(10,(c.z-12*d2/c.s2-48*f*f)/10)}
- if(L<=0)return -99;let Z=10*Math.log10(L);
- Z+=(fbm(x/5-DR[0]*t/5,y/5-DR[1]*t/5)-.5)*(Z>40?18:10);
- const b=z-4.2;if(Z<42)Z+=4*Math.exp(-b*b/.12);return Z}
+function build(s){
+  const r=rng(s=='line'?7:s=='super'?3:5),sc=curType().scale;
+  C=[];MESO=null;
+  const add=(x,y,sz,z,top,vo)=>C.push({x:x*sc,y:y*sc,s2:Math.pow(Math.max(.8,sz*sc),2),z,top,vo:vo||0});
+  if(s=='line'){
+    const a=35*D,ux=Math.sin(a),uy=Math.cos(a),nx=Math.cos(a),ny=-Math.sin(a);DR=[nx,ny];
+    for(let k=-16;k<=16;k++){const al=k*6.5+(r()-.5)*3,ac=6-.0028*al*al+(r()-.5)*4;add(70+ux*al+nx*ac,15+uy*al+ny*ac,4+2*r(),50+8*r()-Math.abs(al)*.08,10+4*r(),13)}
+    for(let k=-11;k<=11;k++){const al=k*9,ac=-26+(r()-.5)*8;add(70+ux*al+nx*ac,15+uy*al+ny*ac,11,29+5*r(),7,0)}
+  }else if(s=='super'){
+    DR=[.72,.54];
+    add(55,28,7,62,15,12);add(78,46,16,44,11,0);add(28,40,10,35,9,0);add(120,-45,5,48,11,10);
+    for(let k=0;k<9;k++){const a=(30+k*26)*D;add(52+4.6*Math.sin(a),17+4.6*Math.cos(a),2.2,57-1.2*k,12,4)}
+    MESO={x:52*sc,y:17*sc,rc:Math.max(.25,1.4*sc),vm:48};
+  }else{
+    DR=[.5,.35];const a=60*D,ux=Math.sin(a),uy=Math.cos(a);
+    for(let k=-9;k<=9;k++)add(60+ux*k*18+(r()-.5)*6,10+uy*k*18+(r()-.5)*6,18,31+8*r(),8,0);
+    for(let k=0;k<8;k++)add(30+r()*100,-30+r()*80,4,44+6*r(),10,6);
+  }
+}
+const frame=t=>C.map(c=>({x:c.x+DR[0]*t*curType().scale,y:c.y+DR[1]*t*curType().scale,s2:c.s2,z:c.z,top:c.top,vo:c.vo}));
+
+function zdb(F,x,y,z){
+  let L=0;const sc=curType().scale;
+  for(const c of F){
+    const dx=x-c.x,dy=y-c.y,d2=dx*dx+dy*dy;if(d2>6*c.s2)continue;
+    const f=z/c.top;if(f>=1)continue;
+    L+=Math.pow(10,(c.z-12*d2/c.s2-48*f*f)/10);
+  }
+  if(L<=0)return -99;
+  let Z=10*Math.log10(L);
+  Z+=(fbm(x/(5*sc)-DR[0]*t/5,y/(5*sc)-DR[1]*t/5)-.5)*(Z>40?18:10);
+  const b=z-4.2;if(Z<42)Z+=4*Math.exp(-b*b/.12);
+  return Z;
+}
 const env=z=>{const d=(150+110*Math.min(z,6)/6)*D,sp=8+(scen=='super'?30:22)*Math.min(z,8)/8;return[-sp*Math.sin(d),-sp*Math.cos(d)]};
-function wnd(F,x,y,z){let[u,v]=env(z);
- for(const c of F){if(!c.vo)continue;const dx=x-c.x,dy=y-c.y,d2=dx*dx+dy*dy,s2=c.s2*2.5;if(d2>6*s2)continue;const w=c.vo*Math.exp(-d2/(2*s2)-z/2.5)/(Math.sqrt(d2)+.01);u+=dx*w;v+=dy*w}
- if(MESO){const dx=x-MESO.x-DR[0]*t,dy=y-MESO.y-DR[1]*t,d=Math.hypot(dx,dy)+.01,vt=MESO.vm*(d<MESO.rc?d/MESO.rc:MESO.rc/d)*Math.exp(-z*z/80);u+=-dy/d*vt;v+=dx/d*vt}
- return[u,v]}
-/* ---------- varredura polar (geometria do feixe, atenuação, bloqueio, clutter, ruído) ---------- */
-const cache=new Map();const keep=(k,v)=>{cache.set(k,v);if(cache.size>8)cache.delete(cache.keys().next().value);return v};
-function scan(el,t,da){const key=[scen,el,t,da].join('|');if(cache.has(key))return cache.get(key);
- const N=NAZ*NG,Z=new Float32Array(N).fill(NaN),V=new Float32Array(N),W=new Float32Array(N),R=new Float32Array(N),F=frame(t),se=Math.sin(el*D),ce=Math.cos(el*D);
- const rr=rng(11),blk=new Float32Array(NAZ).map((_,i)=>(hs(i,0,77)-.5)*3);
- for(let n=0;n<3;n++){const b=Math.floor(rr()*NAZ),w=2+Math.floor(rr()*3),a=6+rr()*8;for(let k=0;k<w;k++)blk[(b+k)%NAZ]-=a}
- for(let i=0;i<NAZ;i++){const az=(i+.5)*360/NAZ*D,sa=Math.sin(az),ca=Math.cos(az);let at=0;
-  for(let j=0;j<NG;j++){const r=(j+.5)*GT,g=r*ce,x=g*sa,y=g*ca,h=r*se+r*r/(2*RE)+.03,hw=r*.0083,k=i*NG+j;if(h>17)break;
-   let L=0;for(const q of[-.5,0,.5]){const zz=zdb(F,x,y,Math.max(h+q*hw,.03));if(zz>-90)L+=Math.pow(10,zz/10)}
-   let z=L>0?10*Math.log10(L/3):-99;const zmin=-3+20*Math.log10(Math.max(r,1)/50);
-   if(z>-90){const zc=z;z+=blk[i]*(r>25?1:.3)-at;at=Math.min(14,at+.02*Math.max(0,zc-30)*GT)}
-   let cl=0;if(el<1.3&&r<26&&hs(i,j,9)<.5*(1-r/26)){cl=1;z=Math.max(z,10+16*hs(i,j,10))}
-   if(z<zmin&&!cl)continue;
-   Z[k]=z+(hs(i,j,3)-.5)*3;
-   if(cl){V[k]=(hs(i,j,4)-.5)*1.2;W[k]=8+7*hs(i,j,5);R[k]=.45+.35*hs(i,j,6);continue}
-   const snr=Math.exp(-(z-zmin)/6),[u,v]=wnd(F,x,y,Math.max(h,.03));
-   let vr=(u*sa+v*ca)*ce+(hs(i,j,4)-.5)*(1.5+10*snr);if(!da)vr=((vr+VN)%(2*VN)+2*VN)%(2*VN)-VN;V[k]=vr;
-   const md=MESO?Math.hypot(x-MESO.x-DR[0]*t,y-MESO.y-DR[1]*t):99;
-   W[k]=2.2+.07*Math.max(0,z-15)+(hs(i,j,5)-.5)*2+8*snr+(MESO?14*Math.exp(-md*md/(2*MESO.rc*MESO.rc*4)):0);
-   const b=h-4.2;let rho=.985+(hs(i,j,6)-.5)*.014-.07*Math.exp(-b*b/.3)*(z<45?1:.4)-(z>57?.07:0)-.3*snr;
-   if(md<.9&&h<2.5){rho=.5+.2*hs(i,j,7);Z[k]=Math.max(Z[k],52)}
-   R[k]=Math.max(.2,rho)}}
- return keep(key,{Z,V,W,R})}
-/* produtos de coluna: VIL e topo de eco (com cone de silêncio de 19,5°) */
-function cols(t){const key='C'+scen+t;if(cache.has(key))return cache.get(key);
- const N=NAZ*NG,VL=new Float32Array(N).fill(NaN),ET=new Float32Array(N).fill(NaN),F=frame(t);
- for(let i=0;i<NAZ;i++){const az=(i+.5)*360/NAZ*D,sa=Math.sin(az),ca=Math.cos(az);
-  for(let j=0;j<NG;j++){const g=(j+.5)*GT,x=g*sa,y=g*ca,k=i*NG+j;if(zdb(F,x,y,1)<5)continue;
-   const zm=Math.min(16,g*.354);let vil=0,top=0;
-   for(let z=.5;z<zm;z+=1){const Z=zdb(F,x,y,z);if(Z>18)top=z;if(Z>0)vil+=3.44e-6*Math.pow(10,Math.min(Z,56)/10*4/7)*1000}
-   VL[k]=vil;if(top>0)ET[k]=top}}
- return keep(key,{VL,ET})}
+function wnd(F,x,y,z){
+  let[u,v]=env(z);const sc=curType().scale;
+  for(const c of F){
+    if(!c.vo)continue;
+    const dx=x-c.x,dy=y-c.y,d2=dx*dx+dy*dy,s2=c.s2*2.5;if(d2>6*s2)continue;
+    const w=c.vo*Math.exp(-d2/(2*s2)-z/2.5)/(Math.sqrt(d2)+.01);
+    u+=dx*w;v+=dy*w;
+  }
+  if(MESO){
+    const dx=x-MESO.x-DR[0]*t*sc,dy=y-MESO.y-DR[1]*t*sc,d=Math.hypot(dx,dy)+.01;
+    const vt=MESO.vm*(d<MESO.rc?d/MESO.rc:MESO.rc/d)*Math.exp(-z*z/80);
+    u+=-dy/d*vt;v+=dx/d*vt;
+  }
+  return[u,v];
+}
+
+/* ---------- varredura polar ---------- */
+const cache=new Map();
+const keep=(k,v)=>{cache.set(k,v);if(cache.size>12)cache.delete(cache.keys().next().value);return v};
+
+function scan(el,t,da){
+  const rt=curType(),key=[rtype,scen,el,t,da].join('|');
+  if(cache.has(key))return cache.get(key);
+  const N=NAZ*NG,Z=new Float32Array(N).fill(NaN),V=new Float32Array(N),W=new Float32Array(N),R=new Float32Array(N);
+  const F=frame(t),se=Math.sin(el*D),ce=Math.cos(el*D),GT=gt(),sc=rt.scale;
+  const rr=rng(11),blk=new Float32Array(NAZ).map((_,i)=>(hs(i,0,77)-.5)*3);
+  for(let n=0;n<3;n++){const b=Math.floor(rr()*NAZ),w=2+Math.floor(rr()*3),a=6+rr()*8;for(let k=0;k<w;k++)blk[(b+k)%NAZ]-=a}
+
+  for(let i=0;i<NAZ;i++){
+    const az=(i+.5)*360/NAZ*D,sa=Math.sin(az),ca=Math.cos(az);let at=0;
+    for(let j=0;j<NG;j++){
+      const r=(j+.5)*GT,g=r*ce,x=g*sa,y=g*ca,h=r*se+r*r/(2*RE)+.03,hw=r*.0083,k=i*NG+j;
+      if(h>17)break;
+      let L=0;for(const q of[-.5,0,.5]){const zz=zdb(F,x/sc,y/sc,Math.max(h+q*hw,.03));if(zz>-90)L+=Math.pow(10,zz/10)}
+      let z=L>0?10*Math.log10(L/3):-99;
+      const zmin=-3+20*Math.log10(Math.max(r/sc,1)/50);
+      if(z>-90){const zc=z;z+=blk[i]*(r/sc>25?1:.3)-at;at=Math.min(14,at+.02*Math.max(0,zc-30)*GT)}
+      let cl=0;
+      if(['CW','MTI','AMTI','GMTI','PD'].includes(rtype)){
+        // realça alvos com velocidade radial significativa e suprime clutter parado
+        const[u,v]=wnd(F,x/sc,y/sc,Math.max(h,.03));
+        const vr=(u*sa+v*ca)*ce;
+        if(Math.abs(vr)<2.5 && z<45)continue;
+      }else if(el<1.3&&r/sc<26&&hs(i,j,9)<.5*(1-r/(26*sc))){
+        cl=1;z=Math.max(z,10+16*hs(i,j,10));
+      }
+      if(z<zmin&&!cl)continue;
+      Z[k]=z+(hs(i,j,3)-.5)*(rt.mode==='sar'?1.2:3);
+      if(cl){V[k]=(hs(i,j,4)-.5)*1.2;W[k]=8+7*hs(i,j,5);R[k]=.45+.35*hs(i,j,6);continue}
+      const snr=Math.exp(-(z-zmin)/6),[u,v]=wnd(F,x/sc,y/sc,Math.max(h,.03));
+      let vr=(u*sa+v*ca)*ce+(hs(i,j,4)-.5)*(1.5+10*snr);
+      if(!da)vr=((vr+VN)%(2*VN)+2*VN)%(2*VN)-VN;
+      V[k]=vr;
+      const md=MESO?Math.hypot(x-MESO.x-DR[0]*t*sc,y-MESO.y-DR[1]*t*sc):99;
+      W[k]=2.2+.07*Math.max(0,z-15)+(hs(i,j,5)-.5)*2+8*snr+(MESO?14*Math.exp(-md*md/(2*MESO.rc*MESO.rc*4)):0);
+      const b=h-4.2;
+      let rho=.985+(hs(i,j,6)-.5)*.014-.07*Math.exp(-b*b/.3)*(z<45?1:.4)-(z>57?.07:0)-.3*snr;
+      if(md<.9*sc&&h<2.5){rho=.5+.2*hs(i,j,7);Z[k]=Math.max(Z[k],52)}
+      if(['InSAR','DInSAR','PSInSAR','PolInSAR'].includes(rtype)){
+        // simula fase/interferometria mapeada na escala de velocidade/correlação
+        rho=Math.max(.2,Math.min(1.05,.62+.38*Math.sin(x*.18+y*.14+t*.15)));
+      }
+      R[k]=Math.max(.2,rho);
+    }
+  }
+  return keep(key,{Z,V,W,R});
+}
+
+function cols(t){
+  const rt=curType(),key='C'+rtype+scen+t;
+  if(cache.has(key))return cache.get(key);
+  const N=NAZ*NG,VL=new Float32Array(N).fill(NaN),ET=new Float32Array(N).fill(NaN);
+  const F=frame(t),GT=gt(),sc=rt.scale;
+  for(let i=0;i<NAZ;i++){
+    const az=(i+.5)*360/NAZ*D,sa=Math.sin(az),ca=Math.cos(az);
+    for(let j=0;j<NG;j++){
+      const g=(j+.5)*GT,x=g*sa,y=g*ca,k=i*NG+j;
+      if(zdb(F,x/sc,y/sc,1)<5)continue;
+      const zm=Math.min(16,g*.354);let vil=0,top=0;
+      for(let z=.5;z<zm;z+=1){const Z=zdb(F,x/sc,y/sc,z);if(Z>18)top=z;if(Z>0)vil+=3.44e-6*Math.pow(10,Math.min(Z,56)/10*4/7)*1000}
+      VL[k]=vil;if(top>0)ET[k]=top;
+    }
+  }
+  return keep(key,{VL,ET});
+}
+
 /* ---------- tabelas de cores ---------- */
 function mk(st,a,b){const o=new Uint8ClampedArray(1024),h=c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16));
  for(let n=0;n<256;n++){const v=a+(b-a)*n/255;let p=0;while(p<st.length-2&&v>st[p+1][0])p++;
@@ -319,15 +208,17 @@ const P={
  BR:{n:'Refletividade',u:'dBZ',a:-10,b:75,d:0,k:'Z',st:[[-10,'#0b1020'],[0,'#3a5a88'],[10,'#4a90b8'],[18,'#3cb44b'],[25,'#1e8c2a'],[30,'#e6e02a'],[35,'#f0c010'],[40,'#f08a10'],[45,'#e03010'],[50,'#b00a0a'],[55,'#d83a8c'],[60,'#b04ad0'],[65,'#78e8f0'],[75,'#ffffff']]},
  BV:{n:'Velocidade radial',u:'m/s',a:-40,b:40,d:1,k:'V',st:BVs},
  SRV:{n:'Velocidade relativa à tempestade',u:'m/s',a:-30,b:30,d:1,k:'V',st:BVs},
- CC:{n:'Coeficiente de correlação',u:'',a:.2,b:1.05,d:2,k:'R',st:[[.2,'#2a0a3a'],[.6,'#8a8a96'],[.75,'#4a4acf'],[.85,'#1fb4c0'],[.9,'#35c24a'],[.94,'#e8d83a'],[.97,'#f07a1a'],[.99,'#e01818'],[1.02,'#ff6aa8'],[1.05,'#ffd0e6']]},
+ CC:{n:'Coeficiente de correlação / Fase',u:'',a:.2,b:1.05,d:2,k:'R',st:[[.2,'#2a0a3a'],[.6,'#8a8a96'],[.75,'#4a4acf'],[.85,'#1fb4c0'],[.9,'#35c24a'],[.94,'#e8d83a'],[.97,'#f07a1a'],[.99,'#e01818'],[1.02,'#ff6aa8'],[1.05,'#ffd0e6']]},
  SW:{n:'Largura do espectro',u:'m/s',a:0,b:30,d:1,k:'W',st:[[0,'#101018'],[3,'#5a5a60'],[5,'#9a9a9a'],[8,'#f09010'],[12,'#e02010'],[16,'#e010a0'],[20,'#a040f0'],[26,'#ffffff'],[30,'#e8f020']]},
  VIL:{n:'Líquido integrado (VIL)',u:'kg/m²',a:0,b:70,d:0,k:'VL',st:[[0,'#6f8a8c'],[5,'#18b8b8'],[15,'#2a6adf'],[25,'#1a1ac8'],[35,'#18b028'],[45,'#e0c820'],[55,'#e03018'],[65,'#d838b8'],[70,'#ffffff']]},
  ET:{n:'Topos de eco',u:'km',a:0,b:20,d:1,k:'ET',st:[[0,'#202830'],[3,'#0aa0c8'],[6,'#1060d0'],[9,'#2a1a90'],[11,'#18b868'],[13,'#10a010'],[15,'#e8d020'],[17,'#e08010'],[18,'#900000'],[20,'#ff3030']]}};
 for(const k in P)P[k].l=mk(P[k].st,P[k].a,P[k].b);
-/* ---------- desenho: cada pixel da tela consulta seu bin polar (resolução nativa, sem esticar bitmap) ---------- */
+
+/* ---------- desenho ---------- */
 function draw(){
+ const rt=curType(),RM=rt.rm,GT=gt();
  const dpr=Math.min(devicePixelRatio||1,2),W=cv.width=Math.round(innerWidth*dpr),H=cv.height=Math.round(innerHeight*dpr),p=P[prod],col=p.k=='VL'||p.k=='ET';
- const S=col?cols(t):scan(tilt,t,dea||prod=='SRV'),data=S[p.k],mask=col?null:S.Z;cur={data,mask,p};
+ const S=col?cols(t):scan(tilt,t,dea||prod=='SRV'),data=S[p.k],mask=col?null:S.Z;cur={data,mask,p,rm:RM,gt:GT};
  const img=cx.createImageData(W,H),d=img.data,k=view.s*dpr,ce=Math.cos(tilt*D),mx=DR[0]*1000/60,my=DR[1]*1000/60,l=p.l,TP=2*Math.PI;
  for(let py=0;py<H;py++){const y=view.y-(py-H/2)/k;for(let px=0;px<W;px++){const x=view.x+(px-W/2)/k,r=Math.hypot(x,y);if(r>=RM)continue;
   let az=Math.atan2(x,y);if(az<0)az+=TP;const idx=((az/TP*NAZ)|0)*NG+((r/GT)|0);let v=data[idx];if(v!==v||(mask&&mask[idx]!==mask[idx]))continue;
@@ -336,34 +227,39 @@ function draw(){
  cx.putImageData(img,0,0);
  const X=x=>(x-view.x)*k+W/2,Y=y=>H/2-(y-view.y)*k;
  cx.globalCompositeOperation='destination-over';cx.strokeStyle='#17212c';cx.lineWidth=1;cx.beginPath();
- for(let g=-300;g<=300;g+=25){cx.moveTo(X(g),0);cx.lineTo(X(g),H);cx.moveTo(0,Y(g));cx.lineTo(W,Y(g))}cx.stroke();
+ const stepGrid=RM<=40?5:RM<=120?15:25;
+ for(let g=-360;g<=360;g+=stepGrid){cx.moveTo(X(g),0);cx.lineTo(X(g),H);cx.moveTo(0,Y(g));cx.lineTo(W,Y(g))}cx.stroke();
  cx.fillStyle='#050608';cx.fillRect(0,0,W,H);cx.globalCompositeOperation='source-over';
  cx.strokeStyle='#8fa2b855';cx.fillStyle='#8fa2b8';cx.font=11*dpr+'px sans-serif';
- for(let R=50;R<=200;R+=50){cx.beginPath();cx.arc(X(0),Y(0),R*k,0,TP);cx.stroke();cx.fillText(R+' km',X(0)+4*dpr,Y(0)-R*k-3*dpr)}
+ const stepRing=RM<=40?5:RM<=120?25:50;
+ for(let R=stepRing;R<RM;R+=stepRing){cx.beginPath();cx.arc(X(0),Y(0),R*k,0,TP);cx.stroke();cx.fillText(R+' km',X(0)+4*dpr,Y(0)-R*k-3*dpr)}
  cx.beginPath();cx.arc(X(0),Y(0),RM*k,0,TP);cx.stroke();
  const m=22*60+t,hh=String(m/60|0).padStart(2,'0'),mm=String(m%60).padStart(2,'0');
- $('il').innerHTML='<b>'+p.n+'</b><br>'+(col?'Coluna completa':'Elevação = '+tilt.toFixed(1)+'°');
+ $('ttl').textContent=rt.code+' Sandbox';
+ $('sub').textContent=rt.tag+' · Alcance '+RM+' km';
+ $('il').innerHTML='<b>'+p.n+' ('+rt.code+')</b><br>'+(col?'Coluna completa':'Elevação = '+tilt.toFixed(1)+'°');
  $('ir').innerHTML=hh+':'+mm+'Z<br>Dados sintéticos';cbar(p)}
 function cbar(p){const w=cb.width=innerWidth,h=cb.height=24;for(let x=0;x<w;x++){const n=(x/w*255|0)*4;bx.fillStyle='rgb('+p.l[n]+','+p.l[n+1]+','+p.l[n+2]+')';bx.fillRect(x,0,1,h)}
  bx.font='11px sans-serif';bx.fillStyle='#fff';bx.strokeStyle='#000';bx.lineWidth=3;
  for(let i=0;i<=8;i++){const v=p.a+(p.b-p.a)*i/8,s=v.toFixed(p.d==2?2:p.d?1:0),x=Math.min(w-bx.measureText(s).width-3,Math.max(3,i/8*w-10));bx.strokeText(s,x,16);bx.fillText(s,x,16)}}
+
 /* ---------- interface ---------- */
+$('rt').innerHTML=RAW_TYPES.map(k=>'<option value="'+k+'"'+(k==rtype?' selected':'')+'>'+k+'</option>').join('');
 $('pb').innerHTML=Object.keys(P).map(k=>'<button data-p="'+k+'" title="'+P[k].n+'"'+(k==prod?' class="on"':'')+'>'+k+'</button>').join(' ');
 $('tl').innerHTML=[.5,.9,1.3,1.8,2.4,3.1,4,5.1,6.4,8,10,12.5,15.6,19.5].map(e=>'<option value="'+e+'">'+e.toFixed(1)+'°</option>').join('');
+$('rt').onchange=e=>{rtype=e.target.value;build(scen);cache.clear();draw()};
 $('pb').onclick=e=>{const b=e.target.closest('button');if(!b)return;prod=b.dataset.p;[...$('pb').children].forEach(x=>x.classList.toggle('on',x==b));draw()};
 $('tl').onchange=e=>{tilt=+e.target.value;draw()};
 $('sc').onchange=e=>{scen=e.target.value;build(scen);cache.clear();t=0;draw()};
 $('pl').onclick=()=>{play=!play;$('pl').textContent=play?'⏸':'▶'};
-$('cat').onclick=()=>{$('catalog').classList.toggle('open');if($('catalog').classList.contains('open'))renderCatalog()};
-$('tech-search').oninput=renderCatalog;
 $('da').onchange=e=>{dea=e.target.checked;draw()};
 cv.onpointerdown=e=>{drag={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing'};
 cv.onpointerup=()=>{drag=null;cv.style.cursor='grab'};
 cv.onpointermove=e=>{if(drag){view.x-=(e.clientX-drag.x)/view.s;view.y+=(e.clientY-drag.y)/view.s;drag={x:e.clientX,y:e.clientY};draw();return}
  const x=view.x+(e.clientX-innerWidth/2)/view.s,y=view.y-(e.clientY-innerHeight/2)/view.s,r=Math.hypot(x,y),rd=$('rd');
- if(!cur||r>=RM){rd.hidden=true;return}let az=Math.atan2(x,y);if(az<0)az+=2*Math.PI;const i=((az/(2*Math.PI)*NAZ)|0)*NG+((r/GT)|0),v=cur.data[i];
+ if(!cur||r>=cur.rm){rd.hidden=true;return}let az=Math.atan2(x,y);if(az<0)az+=2*Math.PI;const i=((az/(2*Math.PI)*NAZ)|0)*NG+((r/cur.gt)|0),v=cur.data[i];
  if(v!==v||(cur.mask&&cur.mask[i]!==cur.mask[i])){rd.hidden=true;return}
- rd.hidden=false;rd.textContent=v.toFixed(cur.p.d)+' '+cur.p.u+' · '+(az/D|0)+'° · '+r.toFixed(0)+' km'};
+ rd.hidden=false;rd.textContent=v.toFixed(cur.p.d)+' '+cur.p.u+' · '+(az/D|0)+'° · '+r.toFixed(1)+' km'};
 cv.onwheel=e=>{e.preventDefault();view.s=Math.max(.8,Math.min(16,view.s*Math.exp(-e.deltaY*.0015)));draw()};
 addEventListener('resize',draw);
 setInterval(()=>{if(play&&!drag){t=(t+2)%62;draw()}},900);
