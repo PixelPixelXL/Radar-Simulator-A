@@ -193,4 +193,28 @@ function pclStep(dt){const{TX,T}=PC,n=+$('nt').value;acP+=dt;if(acP<.25)return n
    if(r>0&&r<150)out.push({x:r*ux,y:r*uy,i,Rb,L,tx:t})}}
  return out}
 function pclFrame(W,H,dpr,dt){const{TX}=PC,n=+$('nt').value,k=Math.min(W,H)/2*.92/150,X=x=>W/2+x*k,Y=y=>H/2-y*k,dets=pclStep(dt),col=['#58d8ff','#ffd23f','#ff6ad5'];
- x2.strokeStyle='rgba(143,162,184,.2)';x2.li
+ x2.strokeStyle='rgba(143,162,184,.2)';x2.lineWidth=dpr;for(const R of[50,100,150]){x2.beginPath();x2.arc(W/2,H/2,R*k,0,TP2);x2.stroke()}
+ x2.font=11*dpr+'px sans-serif';
+ TX.slice(0,n).forEach((t,i)=>{x2.fillStyle=col[i];x2.beginPath();x2.moveTo(X(t.x),Y(t.y)-8*dpr);x2.lineTo(X(t.x)-7*dpr,Y(t.y)+6*dpr);x2.lineTo(X(t.x)+7*dpr,Y(t.y)+6*dpr);x2.fill();x2.fillText(t.n,X(t.x)+10*dpr,Y(t.y))});
+ x2.fillStyle='#fff';x2.fillRect(W/2-4*dpr,H/2-4*dpr,8*dpr,8*dpr);x2.fillText('RX',W/2+8*dpr,H/2-6*dpr);
+ if($('gt').checked){x2.strokeStyle='#fff';for(const o of PC.T){x2.beginPath();x2.moveTo(X(o.x)-4*dpr,Y(o.y));x2.lineTo(X(o.x)+4*dpr,Y(o.y));x2.moveTo(X(o.x),Y(o.y)-4*dpr);x2.lineTo(X(o.x),Y(o.y)+4*dpr);x2.stroke()}}
+ if(!dets)return;
+ for(const d of dets){const t=d.tx,S=d.Rb+d.L,a=S/2,b=Math.sqrt(Math.max(1,a*a-d.L*d.L/4));
+  x2.strokeStyle=col[d.i]+'55';x2.beginPath();x2.ellipse(X(t.x/2),Y(t.y/2),a*k,b*k,-Math.atan2(t.y,t.x),0,TP2);x2.stroke();
+  x2.fillStyle=col[d.i];x2.beginPath();x2.arc(X(d.x),Y(d.y),3*dpr,0,TP2);x2.fill()}}
+function info(){if(mode=='auto'){const P=AP[$('ap').value];$('il').innerHTML='<b>'+P.n+'</b><br>Alcance '+P.R+' m · campo ±'+P.f+'° · σ alcance '+P.sr+' m · σ azimute '+P.sa+'°';$('ir').innerHTML='Mapa range–Doppler (canto)<br>azul = aproximando, vermelho = afastando<br>Dados sintéticos'}
+ else if(mode=='pcl'){$('il').innerHTML='<b>PCL — radar passivo (iluminadores de oportunidade)</b><br>▲ transmissores FM, DVB-T e DAB · □ receptor';$('ir').innerHTML='Elipses = alcance biestático<br>pontos = posição estimada<br>Dados sintéticos'}}
+function fit2(){const dpr=Math.min(devicePixelRatio||1,2);c2.width=Math.round(innerWidth*dpr);c2.height=Math.round(innerHeight*dpr);x2.fillStyle='#05090e';x2.fillRect(0,0,c2.width,c2.height)}
+function setMode(m){mode=m;const w=m=='wx';
+ for(const id of['c','cb','pb','tl','sc'])$(id).style.display=w?'':'none';$('da').parentElement.style.display=w?'':'none';
+ c2.style.display=w?'none':'block';$('g2').style.display=w?'none':'flex';$('ap').style.display=m=='auto'?'':'none';$('nt').style.display=m=='pcl'?'':'none';rdm.style.display=m=='auto'?'block':'none';$('rd').hidden=true;
+ if(w){draw();return}
+ fit2();if(m=='auto')A=autoScene();else PC=pclScene();info()}
+function loop2(now){requestAnimationFrame(loop2);const dt=Math.min(.05,(now-last2)/1000);last2=now;if(mode=='wx'||!play)return;
+ const W=c2.width,H=c2.height,dpr=W/innerWidth;x2.fillStyle='rgba(5,9,14,'+(mode=='auto'?.38:.1)+')';x2.fillRect(0,0,W,H);
+ if(mode=='auto')autoFrame(W,H,dpr,dt);else pclFrame(W,H,dpr,dt)}
+$('rt').onchange=e=>setMode(e.target.value);$('ap').onchange=()=>{info();for(const o of A)o.y=o.y};
+requestAnimationFrame(loop2);
+build(scen);draw();
+})();
+</script></body></html>
