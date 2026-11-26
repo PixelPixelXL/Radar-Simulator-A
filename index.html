@@ -137,8 +137,8 @@ function cbar(p){const w=cb.width=innerWidth,h=cb.height=24;for(let x=0;x<w;x++)
 $('pb').innerHTML=Object.keys(P).map(k=>'<button data-p="'+k+'" title="'+P[k].n+'"'+(k==prod?' class="on"':'')+'>'+k+'</button>').join(' ');
 $('tl').innerHTML=[.5,.9,1.3,1.8,2.4,3.1,4,5.1,6.4,8,10,12.5,15.6,19.5].map(e=>'<option value="'+e+'">'+e.toFixed(1)+'°</option>').join('');
 $('pb').onclick=e=>{const b=e.target.closest('button');if(!b)return;prod=b.dataset.p;[...$('pb').children].forEach(x=>x.classList.toggle('on',x==b));draw()};
-$('tl').onchange=e=>{tilt=+e.target.value;draw()};
-$('sc').onchange=e=>{scen=e.target.value;build(scen);cache.clear();t=0;draw()};
+$('tl').onchange=e=>{tilt=+e.target.value;if(mode=='dow')dowDraw();else draw()};
+$('sc').onchange=e=>{scen=e.target.value;build(scen);cache.clear();t=0;if(mode=='dow')dowDraw();else draw()};
 $('pl').onclick=()=>{play=!play;$('pl').textContent=play?'⏸':'▶'};
 $('da').onchange=e=>{dea=e.target.checked;draw()};
 cv.onpointerdown=e=>{drag={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing'};
@@ -227,9 +227,9 @@ function info(){if(mode=='auto'){const P=AP[$('ap').value];$('il').innerHTML='<b
  else if(mode=='pcl'){$('il').innerHTML='<b>PCL — radar passivo (iluminadores de oportunidade)</b><br>▲ transmissores FM, DVB-T e DAB · □ receptor';$('ir').innerHTML='Elipses = alcance biestático<br>pontos = posição estimada<br>Dados sintéticos'}}
 function fit2(){const dpr=Math.min(devicePixelRatio||1,2);c2.width=Math.round(innerWidth*dpr);c2.height=Math.round(innerHeight*dpr);x2.fillStyle='#05090e';x2.fillRect(0,0,c2.width,c2.height)}
 function setMode(m){mode=m;const w=m=='wx',dw=m=='dow';
- cv.style.left='0';cv.style.right='auto';cv.style.width=w?'100%':dw?'50%':'100%';
+ cv.style.left='0';cv.style.right='auto';cv.style.width=w?'100%':dw?'50%':'100%';cv.style.pointerEvents=dw?'none':'';c2.style.pointerEvents=dw?'none':'';
  c2.style.left=dw?'50%':'0';c2.style.right='auto';c2.style.width=dw?'50%':'100%';
- for(const id of['c','cb'])$(id).style.display=w?'':'none';$('pb').style.display=w?'':'none';$('tl').style.display=(w||dw)?'':'none';$('sc').style.display=(w||dw)?'':'none';$('da').parentElement.style.display=w?'':'none';
+ $('c').style.display=(w||dw)?'':'none';$('cb').style.display=w?'':'none';$('pb').style.display=w?'':'none';$('tl').style.display=(w||dw)?'':'none';$('sc').style.display=(w||dw)?'':'none';$('da').parentElement.style.display=w?'':'none';
  c2.style.display=(w?'none':'block');$('g2').style.display=(w||dw)?'none':'flex';$('ap').style.display=m=='auto'?'':'none';$('nt').style.display=m=='pcl'?'':'none';rdm.style.display=m=='auto'?'block':'none';$('rd').hidden=true;
  if(w){draw();return}if(dw){dowDraw();return}
  fit2();if(m=='auto')A=autoScene();else PC=pclScene();info()}
