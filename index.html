@@ -20,7 +20,7 @@ label{color:var(--mu);display:flex;align-items:center;gap:6px}
 #rdm{position:absolute;right:12px;bottom:84px;width:240px;height:160px;z-index:1;border:1px solid var(--bd);image-rendering:pixelated;background:#000;display:none}
 </style></head><body>
 <div id="bar"><div class="t"><b>KSBX Sandbox</b><div>VCP 212: modo precipitação</div></div>
-<select id="rt" aria-label="Tipo de radar"><option value="wx">Meteorológico (WSR-88D)</option><option value="auto">Automotivo (SRR/MRR/LRR/4D)</option><option value="pcl">Passivo (PCL)</option></select><span id="pb"></span><select id="tl" aria-label="Elevação"></select>
+<select id="rt" aria-label="Tipo de radar"><option value="wx">Meteorológico (WSR-88D)</option><option value="auto">Automotivo (SRR/MRR/LRR/4D)</option><option value="pcl">Passivo (PCL)</option><option value="dow">DOW — Doppler on Wheels (duplo Doppler)</option></select><span id="pb"></span><select id="tl" aria-label="Elevação"></select>
 <select id="sc" aria-label="Cenário"><option value="line">Linha de instabilidade</option><option value="super">Supercélula</option><option value="strat">Chuva estratiforme</option></select>
 <button id="pl" aria-label="Pausar ou tocar">⏸</button>
 <label><input type="checkbox" id="da"> Desdobrar velocidade</label><span id="g2" style="display:none;gap:8px;align-items:center"><select id="ap" aria-label="Radar automotivo"><option value="srr">SRR 40 m</option><option value="mrr" selected>MRR 100 m</option><option value="lrr">LRR 250 m</option><option value="im4d">Imagem 4D 300 m</option></select><select id="nt" aria-label="Transmissores" style="display:none"><option value="1">1 transmissor</option><option value="2">2 transmissores</option><option value="3" selected>3 transmissores</option></select><label><input type="checkbox" id="gt"> Mostrar alvos reais</label></span></div>
@@ -149,8 +149,29 @@ cv.onpointermove=e=>{if(drag){view.x-=(e.clientX-drag.x)/view.s;view.y+=(e.clien
  if(v!==v||(cur.mask&&cur.mask[i]!==cur.mask[i])){rd.hidden=true;return}
  rd.hidden=false;rd.textContent=v.toFixed(cur.p.d)+' '+cur.p.u+' · '+(az/D|0)+'° · '+r.toFixed(0)+' km'};
 cv.onwheel=e=>{e.preventDefault();view.s=Math.max(.8,Math.min(16,view.s*Math.exp(-e.deltaY*.0015)));draw()};
-addEventListener('resize',()=>mode=='wx'?draw():fit2());
-setInterval(()=>{if(mode=='wx'&&play&&!drag){t=(t+2)%62;draw()}},900);
+addEventListener('resize',()=>mode=='wx'?draw():mode=='dow'?dowDraw():fit2());
+setInterval(()=>{if((mode=='wx'||mode=='dow')&&play&&!drag){t=(t+2)%62;if(mode=='wx')draw();else dowDraw()}},900);
+/* ===== DOW: visualização meteorológica móvel, dois produtos sintéticos ===== */
+function dowDraw(){
+ const dpr=Math.min(devicePixelRatio||1,2),w=Math.max(1,Math.floor(innerWidth/2)),h=innerHeight;
+ cv.style.left='0';cv.style.right='auto';cv.style.width='50%';cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+ c2.style.left='50%';c2.style.right='auto';c2.style.width='50%';c2.width=Math.round(w*dpr);c2.height=Math.round(h*dpr);c2.style.display='block';
+ const a=cx,b=x2,W=cv.width,H=cv.height,sc=scan(tilt,t,false),Z=sc.Z,V=sc.V;
+ const palettes=[P.BR.l,mk(BVs,-40,40)],ranges=[[-10,75],[-40,40]],data=[Z,V],contexts=[a,b];
+ for(let q=0;q<2;q++){
+  const ctx=contexts[q],img=ctx.createImageData(W,H),d=img.data,k=Math.min(W,H)*.46/RM,TP=2*Math.PI,lo=ranges[q][0],hi=ranges[q][1],pal=palettes[q];
+  for(let py=0;py<H;py++){const y=(H/2-py)/k;for(let px=0;px<W;px++){const x=(px-W/2)/k,r=Math.hypot(x,y);if(r>=RM)continue;
+   let az=Math.atan2(x,y);if(az<0)az+=TP;const idx=((az/TP*NAZ)|0)*NG+((r/GT)|0),v=data[q][idx];if(v!==v)continue;
+   const j=(Math.max(0,Math.min(255,(v-lo)/(hi-lo)*255))|0)*4,o=(py*W+px)*4;d[o]=pal[j];d[o+1]=pal[j+1];d[o+2]=pal[j+2];d[o+3]=255}}
+  ctx.putImageData(img,0,0);ctx.strokeStyle='#8fa2b855';ctx.fillStyle='#8fa2b8';ctx.lineWidth=dpr;ctx.font=11*dpr+'px sans-serif';
+  for(let r=50;r<=200;r+=50){ctx.beginPath();ctx.arc(W/2,H/2,r*k,0,TP);ctx.stroke();ctx.fillText(r+' km',W/2+4*dpr,H/2-r*k-3*dpr)}
+  ctx.fillStyle='#e5edf5';ctx.font='bold '+(14*dpr)+'px sans-serif';ctx.fillText(q===0?'DBZHC · Refletividade':'VEL · Velocidade radial',12*dpr,28*dpr);
+  ctx.fillStyle='#8fa2b8';ctx.font=11*dpr+'px sans-serif';ctx.fillText('DOW-7 · PPI sintético · '+tilt.toFixed(2)+'°',12*dpr,45*dpr);
+ }
+ $('il').innerHTML='<b>DOW — Doppler on Wheels</b><br>Dois painéis PPI: refletividade e velocidade radial';
+ $('ir').innerHTML='Modelo meteorológico sintético<br>Não representa dados de um DOW real';
+ $('cb').style.display='none';$('rd').hidden=true;
+}
 /* ===== Automotivo (FMCW 77 GHz) e Passivo (PCL): valores típicos aproximados, didáticos ===== */
 const TP2=Math.PI*2,c2=$('c2'),x2=c2.getContext('2d'),gs=()=>{let s=0;for(let i=0;i<6;i++)s+=Math.random();return(s-3)/1.2};
 let mode='wx',last2=performance.now(),A=null,PC=null,acA=0,acP=0;
@@ -205,12 +226,14 @@ function pclFrame(W,H,dpr,dt){const{TX}=PC,n=+$('nt').value,k=Math.min(W,H)/2*.9
 function info(){if(mode=='auto'){const P=AP[$('ap').value];$('il').innerHTML='<b>'+P.n+'</b><br>Alcance '+P.R+' m · campo ±'+P.f+'° · σ alcance '+P.sr+' m · σ azimute '+P.sa+'°';$('ir').innerHTML='Mapa range–Doppler (canto)<br>azul = aproximando, vermelho = afastando<br>Dados sintéticos'}
  else if(mode=='pcl'){$('il').innerHTML='<b>PCL — radar passivo (iluminadores de oportunidade)</b><br>▲ transmissores FM, DVB-T e DAB · □ receptor';$('ir').innerHTML='Elipses = alcance biestático<br>pontos = posição estimada<br>Dados sintéticos'}}
 function fit2(){const dpr=Math.min(devicePixelRatio||1,2);c2.width=Math.round(innerWidth*dpr);c2.height=Math.round(innerHeight*dpr);x2.fillStyle='#05090e';x2.fillRect(0,0,c2.width,c2.height)}
-function setMode(m){mode=m;const w=m=='wx';
- for(const id of['c','cb','pb','tl','sc'])$(id).style.display=w?'':'none';$('da').parentElement.style.display=w?'':'none';
- c2.style.display=w?'none':'block';$('g2').style.display=w?'none':'flex';$('ap').style.display=m=='auto'?'':'none';$('nt').style.display=m=='pcl'?'':'none';rdm.style.display=m=='auto'?'block':'none';$('rd').hidden=true;
- if(w){draw();return}
+function setMode(m){mode=m;const w=m=='wx',dw=m=='dow';
+ cv.style.left='0';cv.style.right='auto';cv.style.width=w?'100%':dw?'50%':'100%';
+ c2.style.left=dw?'50%':'0';c2.style.right='auto';c2.style.width=dw?'50%':'100%';
+ for(const id of['c','cb'])$(id).style.display=w?'':'none';$('pb').style.display=w?'':'none';$('tl').style.display=(w||dw)?'':'none';$('sc').style.display=(w||dw)?'':'none';$('da').parentElement.style.display=w?'':'none';
+ c2.style.display=(w?'none':'block');$('g2').style.display=(w||dw)?'none':'flex';$('ap').style.display=m=='auto'?'':'none';$('nt').style.display=m=='pcl'?'':'none';rdm.style.display=m=='auto'?'block':'none';$('rd').hidden=true;
+ if(w){draw();return}if(dw){dowDraw();return}
  fit2();if(m=='auto')A=autoScene();else PC=pclScene();info()}
-function loop2(now){requestAnimationFrame(loop2);const dt=Math.min(.05,(now-last2)/1000);last2=now;if(mode=='wx'||!play)return;
+function loop2(now){requestAnimationFrame(loop2);const dt=Math.min(.05,(now-last2)/1000);last2=now;if(mode=='wx'||mode=='dow'||!play)return;
  const W=c2.width,H=c2.height,dpr=W/innerWidth;x2.fillStyle='rgba(5,9,14,'+(mode=='auto'?.38:.1)+')';x2.fillRect(0,0,W,H);
  if(mode=='auto')autoFrame(W,H,dpr,dt);else pclFrame(W,H,dpr,dt)}
 $('rt').onchange=e=>setMode(e.target.value);$('ap').onchange=()=>{info();for(const o of A)o.y=o.y};
