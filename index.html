@@ -158,30 +158,148 @@ cv.onwheel=e=>{e.preventDefault();view.s=Math.max(.8,Math.min(16,view.s*Math.exp
 addEventListener('resize',()=>{if(mode=='wx')draw();else if(mode=='dow')dowDraw();else fit2()});
 /* ===== DOW dual-Doppler ===== */
 function dowDraw(){
- const dpr=Math.min(devicePixelRatio||1,2),w=Math.max(1,Math.floor(innerWidth/2)),h=innerHeight;
- cv.style.left='0';cv.style.right='auto';cv.style.width='50%';cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
- c2.style.left='50%';c2.style.right='auto';c2.style.width='50%';c2.width=Math.round(w*dpr);c2.height=Math.round(h*dpr);c2.style.display='block';
- const W=cv.width,H=cv.height,sc0=dowScan(DOW_POS[0],tilt,t,dea),sc1=dowScan(DOW_POS[1],tilt,t,dea);
- const p0=P[prod],p1=P[prod];
- const ctxs=[cx,x2],scs=[sc0,sc1],poss=DOW_POS,ps=[p0,p1];
- for(let q=0;q<2;q++){
-  const ctx=ctxs[q],s=scs[q],pos=poss[q],pal=P[prod].l,lo=P[prod].a,hi=P[prod].b,prodKey=P[prod].k;
-  const data=prodKey=='Z'?s.Z:prodKey=='V'?s.V:prodKey=='W'?s.W:s.R;
-  const img=ctx.createImageData(W,H),d=img.data,k=Math.min(W,H)*.46/DOW_R,TP=2*Math.PI;
-  for(let py=0;py<H;py++){const y=(H/2-py)/k;for(let px=0;px<W;px++){const x=(px-W/2)/k,r=Math.hypot(x,y);if(r>=DOW_R)continue;
-   let az=Math.atan2(x,y);if(az<0)az+=TP;const idx=((az/TP*DOW_NAZ)|0)*DOW_NG+((r/DOW_GT)|0),v=data[idx];if(v!==v)continue;
-   const j=(Math.max(0,Math.min(255,(v-lo)/(hi-lo)*255))|0)*4,o=(py*W+px)*4;d[o]=pal[j];d[o+1]=pal[j+1];d[o+2]=pal[j+2];d[o+3]=255}}
-  ctx.putImageData(img,0,0);
-  ctx.strokeStyle='#8fa2b855';ctx.fillStyle='#8fa2b8';ctx.lineWidth=dpr;ctx.font=11*dpr+'px sans-serif';
-  for(let r=20;r<=DOW_R;r+=20){ctx.beginPath();ctx.arc(W/2,H/2,r*k,0,TP);ctx.stroke();ctx.fillText(r+' km',W/2+4*dpr,H/2-r*k-3*dpr)}
-  // caminhão + antena
-  const cxp=W/2,cyp=H/2;
-  ctx.fillStyle='#58b8ff';ctx.fillRect(cxp-10*dpr,cyp-4*dpr,20*dpr,8*dpr);
-  ctx.fillStyle='#2a3a50';ctx.fillRect(cxp-4*dpr,cyp-10*dpr,8*dpr,5*dpr);
-  ctx.fillStyle='#fff';ctx.fillRect(cxp-2*dpr,cyp-13*dpr,4*dpr,4*dpr);
-  // elipse dual-Doppler: interseção dos dois feixes (desenhada em cada painel como zona cega)
-  ctx.strokeStyle='#ffd23f88';ctx.setLineDash([6*dpr,4*dpr]);ctx.beginPath();
-  const midx=(DOW_POS[0].x+DOW_POS[1].x)/2-pos.x,midy=(DOW_POS[0].y+DOW_POS[1].y)/2-pos.y;
-  const sep=Math.hypot(DOW_POS[0].x-DOW_POS[1].x,DOW_POS[0].y-DOW_POS[1].y);
-  ctx.ellipse(midx*k+W/2,H/2-midy*k,sep*.35*k,sep*.22*k,-Math.atan2(DOW_POS[1].y-DOW_POS[0].y,DOW_POS[1].x-DOW_POS[0].x),0,TP);ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle='#e5edf5';ctx.font='bold '+(14*dpr)+'px sans-serif';ctx.fillText(pos.n+' · '+(prodKey=='Z'?'DBZHC':prodKey=='V'?'VEL':prodKey
+  const dpr=Math.min(devicePixelRatio||1,2);
+  const w=Math.max(1, Math.floor(innerWidth/2));
+  const h=innerHeight;
+  
+  cv.style.left='0'; cv.style.right='auto'; cv.style.width='50%';
+  cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+  
+  c2.style.left='50%'; c2.style.right='auto'; c2.style.width='50%';
+  c2.width=Math.round(w*dpr); c2.height=Math.round(h*dpr); c2.style.display='block';
+
+  // Pega as varreduras dos dois radares
+  const sc0 = dowScan(DOW_POS[0], tilt, t, dea); 
+  const sc1 = dowScan(DOW_POS[1], tilt, t, dea); 
+  
+  // Configuração dos painéis: 0 = Refletividade, 1 = Velocidade Radial
+  const prods = [{k:'Z', p:P.BR, lo:P.BR.a, hi:P.BR.b}, {k:'V', p:P.BV, lo:P.BV.a, hi:P.BV.b}];
+  const scans = [sc0, sc1];
+  const ctxs = [cx, x2];
+  const TP = 2 * Math.PI;
+
+  for(let q=0; q<2; q++){
+    const ctx = ctxs[q];
+    const scanData = scans[q];
+    const prod = prods[q];
+    const data = scanData[prod.k];
+    const pos = DOW_POS[q];
+    
+    const img = ctx.createImageData(cv.width, cv.height);
+    const d = img.data;
+    const k = Math.min(cv.width, cv.height) * 0.46 / DOW_R;
+
+    // Renderiza o radar
+    for(let py=0; py<cv.height; py++){
+      const y = (cv.height/2 - py) / k;
+      for(let px=0; px<cv.width; px++){
+        const x = (px - cv.width/2) / k;
+        const r = Math.hypot(x, y);
+        if(r >= DOW_R) continue;
+        
+        let az = Math.atan2(x, y);
+        if(az < 0) az += TP;
+        
+        const idx = ((az/TP * DOW_NAZ)|0) * DOW_NG + ((r/DOW_GT)|0);
+        let v = data[idx];
+        if(v !== v) continue;
+        
+        const n = (Math.max(0, Math.min(255, (v - prod.lo) / (prod.hi - prod.lo) * 255))|0) * 4;
+        const o = (py * cv.width + px) * 4;
+        d[o] = prod.p.l[n]; d[o+1] = prod.p.l[n+1]; d[o+2] = prod.p.l[n+2]; d[o+3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+
+    // Grid e textos
+    ctx.strokeStyle = '#8fa2b855'; ctx.fillStyle = '#8fa2b8';
+    ctx.lineWidth = dpr; ctx.font = 11*dpr + 'px sans-serif';
+    for(let r=20; r<=DOW_R; r+=20){
+      ctx.beginPath(); ctx.arc(cv.width/2, cv.height/2, r*k, 0, TP); ctx.stroke();
+      ctx.fillText(r+' km', cv.width/2 + 4*dpr, cv.height/2 - r*k - 3*dpr);
+    }
+    
+    // Desenha o caminhão
+    const cxp = cv.width/2, cyp = cv.height/2;
+    ctx.fillStyle = '#58b8ff'; ctx.fillRect(cxp-10*dpr, cyp-4*dpr, 20*dpr, 8*dpr);
+    ctx.fillStyle = '#2a3a50'; ctx.fillRect(cxp-4*dpr, cyp-10*dpr, 8*dpr, 5*dpr);
+    
+    // --- INÍCIO DA MATEMÁTICA DO DUAL-DOPPLER ---
+    // Só desenha as setas de vento no painel esquerdo (q==0) para não poluir
+    if(q === 0) {
+      ctx.strokeStyle = '#ffffff'; 
+      ctx.fillStyle = '#ffffff';
+      
+      // Varre uma grade de 8x8 km na área de sobreposição
+      for(let wx = -40; wx <= 40; wx += 8) {
+        for(let wy = -40; wy <= 40; wy += 8) {
+          
+          // Posição do alvo em relação ao DOW-6 e ao DOW-7
+          const dx0 = wx - DOW_POS[0].x, dy0 = wy - DOW_POS[0].y;
+          const dx1 = wx - DOW_POS[1].x, dy1 = wy - DOW_POS[1].y;
+          
+          const r0 = Math.hypot(dx0, dy0), r1 = Math.hypot(dx1, dy1);
+          
+          // Se estiver longe demais ou muito perto de algum radar, ignora
+          if(r0 > DOW_R || r1 > DOW_R || r0 < 5 || r1 < 5) continue;
+          
+          // Pega os ângulos (azimutes) de cada radar até o alvo
+          const az0 = Math.atan2(dx0, dy0), az1 = Math.atan2(dx1, dy1);
+          
+          // Calcula os índices do array para pegar a velocidade radial de cada um
+          const idx0 = (((az0 < 0 ? az0 + TP : az0)/TP * DOW_NAZ)|0) * DOW_NG + ((r0/DOW_GT)|0);
+          const idx1 = (((az1 < 0 ? az1 + TP : az1)/TP * DOW_NAZ)|0) * DOW_NG + ((r1/DOW_GT)|0);
+          
+          const v0 = sc0.V[idx0], v1 = sc1.V[idx1];
+          
+          // Se algum dos dois estiver cego (NaN) ou nulo, não tem como calcular
+          if(v0 !== v0 || v1 !== v1) continue;
+
+          // Geometria do vento: u = Leste-Oeste, v = Norte-Sul
+          // Equação: Vradial = u * sin(az) + v * cos(az)
+          // Resolvemos o sistema linear 2x2
+          const s0 = Math.sin(az0), c0 = Math.cos(az0);
+          const s1 = Math.sin(az1), c1 = Math.cos(az1);
+          const det = s0 * c1 - s1 * c0;
+
+          // Se o ângulo entre os radares for quase 0 (feixes alinhados), a matemática quebra
+          if(Math.abs(det) < 0.1) continue;
+
+          const u = (v0 * c1 - v1 * c0) / det;
+          const v = (s0 * v1 - s1 * v0) / det;
+
+          // Converte a posição real (km) para a tela (pixels)
+          const px0 = (wx - pos.x) * k + cv.width/2;
+          const py0 = cv.height/2 - (wy - pos.y) * k;
+          
+          // Desenha a setinha do vento
+          const len = 12 * dpr;
+          const endX = px0 + (u / 20) * len; // Escala a seta
+          const endY = py0 - (v / 20) * len;
+          
+          if (!isNaN(endX) && !isNaN(endY)) {
+            ctx.beginPath();
+            ctx.moveTo(px0, py0);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+            
+            // Pontinha da seta
+            ctx.beginPath();
+            ctx.arc(endX, endY, 2*dpr, 0, TP);
+            ctx.fill();
+          }
+        }
+      }
+    }
+    // --- FIM DA MATEMÁTICA DO DUAL-DOPPLER ---
+
+    ctx.fillStyle = '#e5edf5'; ctx.font = 'bold ' + (14*dpr) + 'px sans-serif';
+    ctx.fillText(pos.n + ' · ' + (q===0 ? 'Refletividade + Vetor de Vento 2D' : 'Velocidade Radial (m/s)'), 12*dpr, 28*dpr);
+    ctx.fillStyle = '#8fa2b8'; ctx.font = 11*dpr + 'px sans-serif';
+    ctx.fillText('DOW · PPI sintético · ' + tilt.toFixed(2) + '°', 12*dpr, 45*dpr);
+  }
+
+  $('il').innerHTML = '<b>DOW — Dual-Doppler Real</b><br>Setas brancas: vento 2D recuperado (u, v)';
+  $('ir').innerHTML = 'Modelo sintético<br>Geometria de dois radares';
+  $('cb').style.display = 'none'; $('rd').hidden = true;
+}
