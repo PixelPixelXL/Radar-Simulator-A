@@ -303,3 +303,51 @@ function dowDraw(){
   $('ir').innerHTML = 'Modelo sintético<br>Geometria de dois radares';
   $('cb').style.display = 'none'; $('rd').hidden = true;
 }
+
+  function setMode(m){
+  mode = m;
+  const w = m=='wx', dw = m=='dow';
+  cv.style.left='0'; cv.style.right='auto'; cv.style.width=(w?'100%':dw?'50%':'100%');
+  cv.style.pointerEvents = dw ? 'none' : '';
+  c2.style.pointerEvents = dw ? 'none' : '';
+  c2.style.left = dw ? '50%' : '0'; c2.style.right='auto'; c2.style.width = dw ? '50%' : '100%';
+  $('c').style.display = (w||dw) ? '' : 'none';
+  $('cb').style.display = w ? '' : 'none';
+  $('pb').style.display = w ? '' : 'none';
+  $('tl').style.display = (w||dw) ? '' : 'none';
+  $('sc').style.display = (w||dw) ? '' : 'none';
+  $('da').parentElement.style.display = w ? '' : 'none';
+  c2.style.display = (w ? 'none' : 'block');
+  $('g2').style.display = (w||dw) ? 'none' : 'flex';
+  $('ap').style.display = m=='auto' ? '' : 'none';
+  $('nt').style.display = m=='pcl' ? '' : 'none';
+  rdm.style.display = m=='auto' ? 'block' : 'none';
+  $('rd').hidden = true;
+  
+  if(w){ draw(); return; }
+  if(dw){ dowDraw(); return; }
+  
+  fit2(); 
+  if(m=='auto') A=autoScene(); else PC=pclScene(); 
+  info();
+}
+
+function loop2(now){
+  requestAnimationFrame(loop2);
+  const dt = Math.min(.05, (now-last2)/1000); last2 = now;
+  if(mode=='wx' || mode=='dow' || !play) return;
+  const W = c2.width, H = c2.height, dpr = W/innerWidth;
+  x2.fillStyle = 'rgba(5,9,14,' + (mode=='auto'?.38:.1) + ')';
+  x2.fillRect(0,0,W,H);
+  if(mode=='auto') autoFrame(W,H,dpr,dt); else pclFrame(W,H,dpr,dt);
+}
+
+ $('rt').onchange = e => setMode(e.target.value);
+$('ap').onchange = () => info();
+
+requestAnimationFrame(loop2);
+build(scen);
+draw();
+
+})();
+</script></body></html>
