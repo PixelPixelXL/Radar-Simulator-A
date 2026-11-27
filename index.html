@@ -18,11 +18,11 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 label{color:var(--mu);display:flex;align-items:center;gap:6px}
 </style></head><body>
 <div id="bar"><div class="t"><b>KSBX Sandbox</b><div>VCP 212: modo precipitação</div></div>
-<select id="rt" aria-label="Tipo de radar"><option value="wsr88d">WSR-88D (NEXRAD)</option><option value="dp">WSR-88D Dual-Pol</option><option value="dow">DOW (Doppler on Wheels)</option><option value="par">PAR (arranjo de fase)</option><option value="tdwr">TDWR (aeroportos)</option><option value="wxr">WXR (radar de bordo)</option></select><span id="pb"></span><select id="tl" aria-label="Elevação"></select>
+<select id="rt" aria-label="Tipo de radar"><option value="wsr88d">WSR-88D (NEXRAD)</option><option value="dp">WSR-88D Dual-Pol</option><option value="dow">DOW (Doppler on Wheels)</option><option value="par">PAR (arranjo de fase)</option><option value="tdwr">TDWR (aeroportos)</option><option value="wxr">WXR (radar de bordo)</option><option value="auto">Automotivo (SRR/MRR/LRR/4D)</option><option value="pcl">Passivo (PCL)</option></select><span id="pb"></span><select id="tl" aria-label="Elevação"></select>
 <select id="sc" aria-label="Cenário"><option value="line">Linha de instabilidade</option><option value="super">Supercélula</option><option value="strat">Chuva estratiforme</option></select>
 <button id="pl" aria-label="Pausar ou tocar">⏸</button>
 <label><input type="checkbox" id="da"> Desdobrar velocidade</label></div>
-<canvas id="c"></canvas><canvas id="cb"></canvas>
+<canvas id="c"></canvas><canvas id="c2" style="display:none;position:absolute;inset:0;width:100%;height:100%"></canvas><canvas id="cb"></canvas><span id="g2" style="display:none"></span><select id="ap" style="display:none"><option value="srr">SRR</option><option value="mrr">MRR</option><option value="lrr">LRR</option><option value="im4d">Imagem 4D</option></select><select id="nt" style="display:none"><option value="1">1 transmissor</option><option value="2">2 transmissores</option><option value="3" selected>3 transmissores</option></select><label id="gtl" style="display:none"><input type="checkbox" id="gt"> Mostrar posições verdadeiras da simulação</label>
 <div class="ov" id="il"></div><div class="ov" id="ir"></div><div id="rd" hidden></div>
 <script>
 (()=>{'use strict';
@@ -159,7 +159,7 @@ function applyProfile(id){PRO=PROS[id];RM=PRO.R;GT=PRO.GT;NG=Math.round(RM/GT);N
  P.BR.l=PRO.wxr?WXL:BRL;cache.clear();build(scen);t=0;tilt=PRO.t0!==undefined?PRO.t0:PRO.el[0];buildPB();buildTL();
  view.s=Math.min(innerWidth,innerHeight)/(RM*1.2);view.x=0;view.y=(PRO.y0||0)*RM;
  document.querySelector('#bar .t').innerHTML='<b>'+PRO.n+' Sandbox</b><div>'+PRO.band+' · alcance '+RM+' km · feixe '+PRO.bw+'°</div>';$('rt').value=id;draw()}
-$('rt').onchange=e=>applyProfile(e.target.value);
+$('rt').onchange=e=>{const id=e.target.value;if(id=='auto'||id=='pcl'){setMode(id);return}mode='wx';setMode('wx');applyProfile(id)};
 $('pb').onclick=e=>{const b=e.target.closest('button');if(!b)return;prod=b.dataset.p;[...$('pb').children].forEach(x=>x.classList.toggle('on',x==b));draw()};
 $('tl').onchange=e=>{tilt=+e.target.value;draw()};
 $('sc').onchange=e=>{scen=e.target.value;build(scen);cache.clear();t=0;draw()};
@@ -174,7 +174,70 @@ cv.onpointermove=e=>{if(drag){view.x-=(e.clientX-drag.x)/view.s;view.y+=(e.clien
  rd.hidden=false;rd.textContent=v.toFixed(cur.p.d)+' '+cur.p.u+' · '+(az/D|0)+'° · '+r.toFixed(0)+' km'};
 cv.onwheel=e=>{e.preventDefault();view.s=Math.max(.8,Math.min(16,view.s*Math.exp(-e.deltaY*.0015)));draw()};
 addEventListener('resize',draw);
-setInterval(()=>{if(play&&!drag){t=(t+PRO.dt)%62;draw()}},900);
+setInterval(()=>{if(mode=='wx'&&play&&!drag){t=(t+PRO.dt)%62;draw()}},900);
+/* ===== Automotivo (FMCW 77 GHz) e Passivo (PCL): valores típicos aproximados, didáticos ===== */
+const TP2=Math.PI*2,c2=$('c2'),x2=c2.getContext('2d'),gs=()=>{let s=0;for(let i=0;i<6;i++)s+=Math.random();return(s-3)/1.2};
+let mode='wx',last2=performance.now(),A=null,PC=null,acA=0,acP=0;
+const rdm=document.createElement('canvas'),NR=110,NV=70,RD=new Float32Array(NR*NV),VE=25;rdm.id='rdm';rdm.width=NR;rdm.height=NV;document.body.appendChild(rdm);const rx=rdm.getContext('2d');
+const AP={srr:{n:'SRR — curto alcance (79 GHz)',R:40,f:75,sr:.15,sa:4,sv:.12},mrr:{n:'MRR — médio alcance (77 GHz)',R:100,f:45,sr:.3,sa:2.5,sv:.15},lrr:{n:'LRR — longo alcance (77 GHz)',R:250,f:10,sr:.5,sa:1,sv:.2},im4d:{n:'Radar de imagem 4D (77 GHz)',R:300,f:60,sr:.25,sa:.7,sv:.1}};
+function autoScene(){const ob=[],car=(x,y,v,rc)=>ob.push({x,y,v,w:1.8,l:4.5,pts:[[-.9,-2.2],[.9,-2.2],[-.9,2.2],[.9,2.2]].map(p=>({dx:p[0],dy:p[1],rcs:rc*(.5+Math.random())}))});
+ car(0,55,22,8);car(3.5,30,28,8);car(-3.5,120,-25,8);car(3.5,150,20,20);car(-3.5,200,24,8);
+ ob.push({x:6,y:18,v:0,vx:-1.2,w:.5,l:.5,ped:1,pts:[{dx:0,dy:0,rcs:.5}]});
+ for(let y=-10;y<320;y+=5){ob.push({x:-7.5,y,v:0,st:1,pts:[{dx:0,dy:0,rcs:1.5}]});ob.push({x:7.5,y,v:0,st:1,pts:[{dx:0,dy:0,rcs:1.5}]})}
+ return ob}
+function autoStep(dt,P){acA+=dt;const mv=acA;if(acA<.05)return null;acA=0;const out=[];
+ for(const o of A){o.y+=(o.v-VE)*mv;o.x+=(o.vx||0)*mv;if(o.y<-25)o.y+=330;if(o.y>340)o.y-=330;if(o.x<-8)o.x=7;
+  for(const p of o.pts){const x=o.x+p.dx,y=o.y+p.dy,R=Math.hypot(x,y),az=Math.atan2(x,y);if(R<1||R>P.R||Math.abs(az)>P.f*D)continue;
+   const vr=((o.vx||0)*x+(o.v-VE)*y)/R,snr=13+10*Math.log10(p.rcs*(.4+Math.random()*1.2))-40*Math.log10(R/(.45*P.R));
+   if(Math.random()>1/(1+Math.exp(-(snr-13)/2.2)))continue;
+   out.push({R:R+gs()*P.sr,az:az+gs()*P.sa*D/2.355,vr:vr+gs()*P.sv,snr})}}
+ for(let i=0;i<5;i++)out.push({R:Math.random()*P.R,az:(Math.random()*2-1)*P.f*D,vr:(Math.random()*2-1)*30,snr:2});
+ return out}
+function autoFrame(W,H,dpr,dt){const P=AP[$('ap').value],s=H*.82/P.R,ex=W/2,ey=H*.9,dets=autoStep(dt,P);
+ x2.strokeStyle='rgba(143,162,184,.25)';x2.lineWidth=dpr;x2.fillStyle='rgba(143,162,184,.6)';x2.font=10*dpr+'px sans-serif';
+ for(let i=1;i<=4;i++){const r=P.R*i/4*s;x2.beginPath();x2.arc(ex,ey,r,-Math.PI/2-P.f*D,-Math.PI/2+P.f*D);x2.stroke();x2.fillText((P.R*i/4).toFixed(0)+' m',ex+4*dpr,ey-r-3*dpr)}
+ x2.beginPath();for(const sg of[-1,1]){x2.moveTo(ex,ey);x2.lineTo(ex+sg*P.R*s*Math.sin(P.f*D),ey-P.R*s*Math.cos(P.f*D))}x2.stroke();
+ x2.strokeStyle='rgba(255,255,255,.12)';x2.beginPath();for(const lx of[-5.25,-1.75,1.75,5.25]){x2.moveTo(ex+lx*s,ey);x2.lineTo(ex+lx*s,ey-P.R*s)}x2.stroke();
+ x2.fillStyle='#8fa2b8';x2.fillRect(ex-.9*s,ey,1.8*s,4.5*s);
+ if($('gt').checked){x2.strokeStyle='rgba(255,255,255,.5)';for(const o of A)if(!o.st)x2.strokeRect(ex+(o.x-o.w/2)*s,ey-(o.y+o.l/2)*s,o.w*s,o.l*s)}
+ if(!dets)return;
+ for(const d of dets){const x=d.R*Math.sin(d.az),y=d.R*Math.cos(d.az),t=Math.max(-1,Math.min(1,d.vr/30));
+  x2.fillStyle=t<0?'rgb('+(60-t*40|0)+','+(180-t*60|0)+',255)':'rgb(255,'+(140-t*90|0)+','+(80-t*40|0)+')';
+  x2.beginPath();x2.arc(ex+x*s,ey-y*s,(1.6+Math.min(3,d.snr/10))*dpr,0,TP2);x2.fill()}
+ for(let i=0;i<RD.length;i++)RD[i]*=.85;
+ for(const d of dets){const i=d.R/P.R*NR|0,j=(d.vr+35)/70*NV|0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const ii=i+a,jj=j+b;if(ii>=0&&ii<NR&&jj>=0&&jj<NV)RD[jj*NR+ii]+=Math.min(1,d.snr/25)*(a||b?.35:1)}}
+ const im=rx.createImageData(NR,NV);for(let q=0;q<RD.length;q++){const v=Math.min(1,RD[q]+Math.random()*.08),o=q*4;im.data[o]=255*Math.max(0,2*v-1);im.data[o+1]=255*Math.min(1,v*1.5);im.data[o+2]=255*(.25+.6*v);im.data[o+3]=255}rx.putImageData(im,0,0)}
+function pclScene(){const r=rng(5),T=[];for(let i=0;i<7;i++){const a=r()*TP2,d=20+Math.sqrt(r())*110,h=r()*TP2,sp=170+r()*90;T.push({x:d*Math.sin(a),y:d*Math.cos(a),vx:sp*Math.sin(h)/1000,vy:sp*Math.cos(h)/1000,rcs:Math.pow(10,.5+r()*1.5)})}
+ return{TX:[{n:'FM',x:-70,y:90,p:0},{n:'DVB-T',x:95,y:40,p:3},{n:'DAB',x:25,y:-105,p:-3}],T}}
+function pclStep(dt){const{TX,T}=PC,n=+$('nt').value;acP+=dt;if(acP<.25)return null;const mv=acP*10;acP=0;const out=[];
+ for(const o of T){o.x+=o.vx*mv;o.y+=o.vy*mv;if(Math.hypot(o.x,o.y)>135){o.x*=-.95;o.y*=-.95}
+  for(let i=0;i<n;i++){const t=TX[i],dT=Math.hypot(o.x-t.x,o.y-t.y),dR=Math.hypot(o.x,o.y),L=Math.hypot(t.x,t.y);if(dR<8)continue;
+   const snr=13+t.p+10*Math.log10(o.rcs/10)-20*Math.log10(dT/60)-20*Math.log10(dR/60);if(Math.random()>1/(1+Math.exp(-(snr-13)/2.2)))continue;
+   const Rb=dT+dR-L+gs()*.15,az=Math.atan2(o.x,o.y)+gs()*3*D,ux=Math.sin(az),uy=Math.cos(az),S=Rb+L,r=(S*S-L*L)/(2*(S-(ux*t.x+uy*t.y)));
+   if(r>0&&r<150)out.push({x:r*ux,y:r*uy,i,Rb,L,tx:t})}}
+ return out}
+function pclFrame(W,H,dpr,dt){const{TX}=PC,n=+$('nt').value,k=Math.min(W,H)/2*.92/150,X=x=>W/2+x*k,Y=y=>H/2-y*k,dets=pclStep(dt),col=['#58d8ff','#ffd23f','#ff6ad5'];
+ x2.strokeStyle='rgba(143,162,184,.2)';x2.lineWidth=dpr;for(const R of[50,100,150]){x2.beginPath();x2.arc(W/2,H/2,R*k,0,TP2);x2.stroke()}
+ x2.font=11*dpr+'px sans-serif';
+ TX.slice(0,n).forEach((t,i)=>{x2.fillStyle=col[i];x2.beginPath();x2.moveTo(X(t.x),Y(t.y)-8*dpr);x2.lineTo(X(t.x)-7*dpr,Y(t.y)+6*dpr);x2.lineTo(X(t.x)+7*dpr,Y(t.y)+6*dpr);x2.fill();x2.fillText(t.n,X(t.x)+10*dpr,Y(t.y))});
+ x2.fillStyle='#fff';x2.fillRect(W/2-4*dpr,H/2-4*dpr,8*dpr,8*dpr);x2.fillText('RX',W/2+8*dpr,H/2-6*dpr);
+ if($('gt').checked){x2.strokeStyle='#fff';for(const o of PC.T){x2.beginPath();x2.moveTo(X(o.x)-4*dpr,Y(o.y));x2.lineTo(X(o.x)+4*dpr,Y(o.y));x2.moveTo(X(o.x),Y(o.y)-4*dpr);x2.lineTo(X(o.x),Y(o.y)+4*dpr);x2.stroke()}}
+ if(!dets)return;
+ for(const d of dets){const t=d.tx,S=d.Rb+d.L,a=S/2,b=Math.sqrt(Math.max(1,a*a-d.L*d.L/4));
+  x2.strokeStyle=col[d.i]+'55';x2.beginPath();x2.ellipse(X(t.x/2),Y(t.y/2),a*k,b*k,-Math.atan2(t.y,t.x),0,TP2);x2.stroke();
+  x2.fillStyle=col[d.i];x2.beginPath();x2.arc(X(d.x),Y(d.y),3*dpr,0,TP2);x2.fill()}}
+function info(){if(mode=='auto'){const P=AP[$('ap').value];$('il').innerHTML='<b>'+P.n+'</b><br>Alcance '+P.R+' m · campo  ±'+P.f+'° · σ alcance '+P.sr+' m · σ azimute '+P.sa+'°';$('ir').innerHTML='Mapa range–Doppler (canto)<br>azul = aproximando, vermelho = afastando<br>Dados sintéticos'}
+ else if(mode=='pcl'){$('il').innerHTML='<b>PCL — radar passivo (iluminadores de oportunidade)</b><br>▲ transmissores FM, DVB-T e DAB · □ receptor';$('ir').innerHTML='Elipses = alcance biestático<br>pontos = posição estimada<br>Dados sintéticos'}}
+function fit2(){const dpr=Math.min(devicePixelRatio||1,2);c2.width=Math.round(innerWidth*dpr);c2.height=Math.round(innerHeight*dpr);x2.fillStyle='#05090e';x2.fillRect(0,0,c2.width,c2.height)}
+function setMode(m){mode=m;const w=m=='wx';
+ for(const id of['c','cb','pb','tl','sc'])$(id).style.display=w?'':'none';$('da').parentElement.style.display=w?'':'none';$('gtl').style.display=w?'none':'';
+ c2.style.display=w?'none':'block';$('g2').style.display=w?'none':'flex';$('ap').style.display=m=='auto'?'':'none';$('nt').style.display=m=='pcl'?'':'none';rdm.style.display=m=='auto'?'block':'none';$('rd').hidden=true;
+ if(w){draw();return}
+ fit2();if(m=='auto')A=autoScene();else PC=pclScene();info()}
+function loop2(now){requestAnimationFrame(loop2);const dt=Math.min(.05,(now-last2)/1000);last2=now;if(mode=='wx'||!play)return;
+ const W=c2.width,H=c2.height,dpr=W/innerWidth;x2.fillStyle='rgba(5,9,14,'+(mode=='auto'?.38:.1)+')';x2.fillRect(0,0,W,H);
+ if(mode=='auto')autoFrame(W,H,dpr,dt);else pclFrame(W,H,dpr,dt)}
+
 applyProfile('wsr88d');
 })();
 </script></body></html>
