@@ -112,11 +112,15 @@ P.ZDR={n:'Refletividade diferencial (ZDR)',u:'dB',a:-2,b:6,d:1,k:'X',st:[[-2,'#2
 P.KDP={n:'Fase diferencial específica (KDP)',u:'°/km',a:0,b:6,d:1,k:'K',min:.3,st:[[0,'#00c800'],[1,'#ffff00'],[2,'#ff2a00'],[4,'#ff00ff'],[6,'#ffffff']]};
 for(const k in P)P[k].l=mk(P[k].st,P[k].a,P[k].b);
 const BRL=P.BR.l,WXL=mk([[-10,'#000000'],[18,'#000000'],[20,'#008800'],[30,'#00e000'],[38,'#ffe000'],[45,'#ff2000'],[52,'#ff00ff'],[75,'#ffffff']],-10,75);
+/* Paletas próprias do DOW: saturadas e contrastadas, sem alterar WSR-88D/Dual-Pol. */
+const DOWZL=mk([[-10,'#24103f'],[0,'#32146f'],[10,'#2634bd'],[20,'#176fe0'],[28,'#20a8e8'],[34,'#16a94b'],[42,'#39c52d'],[48,'#e5e52a'],[54,'#f4a51b'],[60,'#ef5b16'],[66,'#e51e20'],[75,'#a90e24']],-10,75);
+const DOWVL=mk([[-40,'#5a10a8'],[-30,'#3030d0'],[-22,'#2378ed'],[-14,'#28bfe5'],[-6,'#22b85a'],[0,'#48c84a'],[6,'#d5e52b'],[14,'#f3a21c'],[22,'#ed5517'],[30,'#e51e22'],[40,'#a80e24']],-40,40);
+function paletteFor(p){return PRO.id=='dow'?(p.k=='Z'?DOWZL:(p.k=='V'?DOWVL:p.l)):p.l;}
 /* ---------- desenho: cada pixel da tela consulta seu bin polar (resolução nativa, sem esticar bitmap) ---------- */
 function draw(){
  const dpr=Math.min(devicePixelRatio||1,2),W=cv.width=Math.round(innerWidth*dpr),H=cv.height=Math.round(innerHeight*dpr),p=P[prod],col=p.k=='VL'||p.k=='ET';
  const S=col?cols(t):scan(tilt,t,dea||prod=='SRV'),data=S[p.k],mask=col?null:S.Z;cur={data,mask,p};
- const img=cx.createImageData(W,H),d=img.data,k=view.s*dpr,ce=Math.cos(tilt*D),mx=DR[0]*1000/60,my=DR[1]*1000/60,l=p.l,TP=2*Math.PI;
+ const img=cx.createImageData(W,H),d=img.data,k=view.s*dpr,ce=Math.cos(tilt*D),mx=DR[0]*1000/60,my=DR[1]*1000/60,l=paletteFor(p),TP=2*Math.PI;
  for(let py=0;py<H;py++){const y=view.y-(py-H/2)/k;for(let px=0;px<W;px++){const x=view.x+(px-W/2)/k,r=Math.hypot(x,y);if(r>=RM)continue;
   let az=Math.atan2(x,y);if(az<0)az+=TP;const idx=((az/TP*NAZ)|0)*NG+((r/GT)|0);let v=data[idx];if(v!==v||(mask&&mask[idx]!==mask[idx])||(p.min!==undefined&&v<p.min))continue;
   if(prod=='SRV')v-=(mx*x+my*y)/(r+1e-6)*ce;
@@ -133,7 +137,7 @@ function draw(){
  const m=22*60+t,hh=String(m/60|0).padStart(2,'0'),mm=String(m%60).padStart(2,'0');
  $('il').innerHTML='<b>'+PRO.n+' · '+p.n+'</b><br>'+(col?'Coluna completa':'Elevação = '+tilt.toFixed(1)+'°');
  $('ir').innerHTML=hh+':'+mm+'Z · volume a cada '+PRO.upd+'<br>Dados sintéticos';cbar(p)}
-function cbar(p){const w=cb.width=innerWidth,h=cb.height=24;for(let x=0;x<w;x++){const n=(x/w*255|0)*4;bx.fillStyle='rgb('+p.l[n]+','+p.l[n+1]+','+p.l[n+2]+')';bx.fillRect(x,0,1,h)}
+function cbar(p){const l=paletteFor(p),w=cb.width=innerWidth,h=cb.height=24;for(let x=0;x<w;x++){const n=(x/w*255|0)*4;bx.fillStyle='rgb('+l[n]+','+l[n+1]+','+l[n+2]+')';bx.fillRect(x,0,1,h)}
  bx.font='11px sans-serif';bx.fillStyle='#fff';bx.strokeStyle='#000';bx.lineWidth=3;
  for(let i=0;i<=8;i++){const v=p.a+(p.b-p.a)*i/8,s=v.toFixed(p.d==2?2:p.d?1:0),x=Math.min(w-bx.measureText(s).width-3,Math.max(3,i/8*w-10));bx.strokeText(s,x,16);bx.fillText(s,x,16)}}
 /* ---------- interface ---------- */
